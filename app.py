@@ -5,8 +5,8 @@ from flask import Flask, request, jsonify
 app = Flask(__name__)
 
 # Configure logging
-the format = '%(asctime)s - %(levelname)s - %(message)s'
-logging.basicConfig(level=logging.INFO, format=the format)
+log_format = '%(asctime)s - %(levelname)s - %(message)s'
+logging.basicConfig(level=logging.INFO, format=log_format)
 
 # Database setup
 DATABASE = 'posts.db'
@@ -15,7 +15,13 @@ def init_db():
     conn = sqlite3.connect(DATABASE)
     c = conn.cursor()
     # Create table
-    c.execute('''CREATE TABLE IF NOT EXISTS post_history (id INTEGER PRIMARY KEY AUTOINCREMENT, platform TEXT, content TEXT, status TEXT, timestamp TEXT)''')
+    c.execute('''CREATE TABLE IF NOT EXISTS post_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        platform TEXT,
+        content TEXT,
+        status TEXT,
+        timestamp TEXT
+    )''')
     conn.commit()
     conn.close()
 
@@ -29,9 +35,11 @@ def create_post():
         content = data.get('content')
         status = data.get('status')
         timestamp = data.get('timestamp')
+
         conn = sqlite3.connect(DATABASE)
         c = conn.cursor()
-        c.execute('INSERT INTO post_history (platform, content, status, timestamp) VALUES (?, ?, ?, ?)', (platform, content, status, timestamp))
+        c.execute('INSERT INTO post_history (platform, content, status, timestamp) VALUES (?, ?, ?, ?)',
+                  (platform, content, status, timestamp))
         conn.commit()
         conn.close()
         logging.info(f'Post created: {content}')

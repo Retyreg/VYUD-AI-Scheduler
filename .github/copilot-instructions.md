@@ -60,7 +60,8 @@ python auto_post.py
 ### General Python
 - Use type hints where possible
 - Follow PEP 8 style guidelines
-- Use meaningful variable names in both English and Russian (project supports bilingual comments)
+- Use meaningful variable names in English (for code consistency and international collaboration)
+- Comments and user-facing text can be bilingual (Russian/English) as needed
 - Keep functions focused and single-purpose
 - Add docstrings to classes and public methods
 
@@ -85,7 +86,12 @@ python auto_post.py
 
 ### Database
 - SQLite database file: `posts.db`
-- Table: `post_history` with fields: id, platform, content, status, timestamp
+- Table: `post_history` with schema:
+  - `id` - INTEGER PRIMARY KEY AUTOINCREMENT
+  - `platform` - TEXT (e.g., "telegram", "linkedin")
+  - `content` - TEXT (post content)
+  - `status` - TEXT (e.g., "success", "error")
+  - `timestamp` - TEXT (ISO 8601 format)
 - Use context managers or explicit close() for database connections
 - Commit after insertions
 

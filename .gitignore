@@ -3,3 +3,12 @@ node_modules
 dist/
 __pycache__/
 *.pyc
+
+# Docker
+certbot/
+nginx-temp.conf
+posts.db
+
+# Database backups
+*.db.backup*
+*.sqlite3

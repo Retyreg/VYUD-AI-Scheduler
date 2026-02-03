@@ -1,55 +1,58 @@
-import streamlit as st
-import os
-from datetime import datetime
-from groq import Groq
-from telegram_poster import TelegramPoster
-from linkedin_poster import LinkedinPoster
-from dotenv import load_dotenv
+import logging
+import sqlite3
+from flask import Flask, request, jsonify
 
-load_dotenv()
+app = Flask(__name__)
 
-# Инициализация Groq
-groq = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+# Configure logging
+the format = '%(asctime)s - %(levelname)s - %(message)s'
+logging.basicConfig(level=logging.INFO, format=the format)
 
-st.title("VYUD AI Scheduler")
-st.subheader("Автопостинг для Telegram и LinkedIn с AI-генерацией контента")
+# Database setup
+DATABASE = 'posts.db'
 
-# Табы
-tab1, tab2, tab3 = st.tabs(["Календарь", "Создать пост", "Настройки"])
+def init_db():
+    conn = sqlite3.connect(DATABASE)
+    c = conn.cursor()
+    # Create table
+    c.execute('''CREATE TABLE IF NOT EXISTS post_history (id INTEGER PRIMARY KEY AUTOINCREMENT, platform TEXT, content TEXT, status TEXT, timestamp TEXT)''')
+    conn.commit()
+    conn.close()
 
-with tab1:
-    st.header("Календарь постов")
-    # Простой календарь (можно улучшить)
-    st.write("Запланированные посты:")
-    # Здесь можно добавить логику для отображения постов
+init_db()
 
-with tab2:
-    st.header("Создать пост")
-    platform = st.selectbox("Платформа", ["telegram", "linkedin"])
-    topic = st.text_input("Тема для генерации поста")
-    if st.button("🤖 Сгенерировать"):
-        if topic:
-            with st.spinner("Генерация поста..."):
-                prompt = f"Создай пост для {platform} на тему: {topic}. Пост должен быть информативным, engaging и не длиннее 200 символов."
-                response = groq.chat.completions.create(
-                    model="llama3-8b-8192",
-                    messages=[{"role": "user", "content": prompt}],
-                    max_tokens=200
-                )
-                generated_post = response.choices[0].message.content.strip()
-            st.text_area("Сгенерированный пост", generated_post, height=100)
-            if st.button("Опубликовать"):
-                if platform == "telegram":
-                    poster = TelegramPoster()
-                elif platform == "linkedin":
-                    poster = LinkedinPoster()
-                result = poster.post_text(generated_post)
-                st.success("Пост опубликован!")
-                st.json(result)
-        else:
-            st.error("Введите тему")
+@app.route('/post', methods=['POST'])
+def create_post():
+    try:
+        data = request.get_json()
+        platform = data.get('platform')
+        content = data.get('content')
+        status = data.get('status')
+        timestamp = data.get('timestamp')
+        conn = sqlite3.connect(DATABASE)
+        c = conn.cursor()
+        c.execute('INSERT INTO post_history (platform, content, status, timestamp) VALUES (?, ?, ?, ?)', (platform, content, status, timestamp))
+        conn.commit()
+        conn.close()
+        logging.info(f'Post created: {content}')
+        return jsonify({'message': 'Post created successfully'}), 201
+    except Exception as e:
+        logging.error(f'Error creating post: {e}')
+        return jsonify({'error': str(e)}), 500
 
-with tab3:
-    st.header("Настройки")
-    st.write("API ключи настроены в .env файле")
-    # Здесь можно добавить форму для ввода ключей, но для безопасности лучше в .env
+@app.route('/post/history', methods=['GET'])
+def get_post_history():
+    try:
+        conn = sqlite3.connect(DATABASE)
+        c = conn.cursor()
+        c.execute('SELECT * FROM post_history')
+        posts = c.fetchall()
+        conn.close()
+        logging.info('Fetched post history')
+        return jsonify(posts), 200
+    except Exception as e:
+        logging.error(f'Error fetching post history: {e}')
+        return jsonify({'error': str(e)}), 500
+
+if __name__ == '__main__':
+    app.run(debug=True)

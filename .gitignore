@@ -12,3 +12,6 @@ posts.db
 # Database backups
 *.db.backup*
 *.sqlite3
+
+# Streamlit secrets
+.streamlit/secrets.toml

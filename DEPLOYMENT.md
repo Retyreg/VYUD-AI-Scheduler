@@ -6,7 +6,7 @@
 
 - Ubuntu Server (20.04 или новее)
 - Доступ к серверу через SSH с правами sudo
-- Домен publish.vyud.tech с A-записью, указывающей на IP вашего сервера
+- Домен publisher.vyud.tech с A-записью, указывающей на IP вашего сервера
 - Открытые порты: 80 (HTTP) и 443 (HTTPS)
 
 ## 🔧 Шаг 1: Подготовка сервера
@@ -113,7 +113,7 @@ mkdir -p certbot/conf certbot/www
 cat > nginx-temp.conf << 'EOF'
 server {
     listen 80;
-    server_name publish.vyud.tech;
+    server_name publisher.vyud.tech;
 
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
@@ -155,7 +155,7 @@ docker run --rm \
   --email your-email@example.com \
   --agree-tos \
   --no-eff-email \
-  -d publish.vyud.tech
+  -d publisher.vyud.tech
 
 # Остановка временного Nginx
 docker stop nginx-temp
@@ -194,8 +194,8 @@ curl http://localhost:8501/_stcore/health
 ## 🌐 Шаг 7: Проверка доступности
 
 Откройте браузер и перейдите по адресу:
-- HTTP: http://publish.vyud.tech (должен редиректить на HTTPS)
-- HTTPS: https://publish.vyud.tech
+- HTTP: http://publisher.vyud.tech (должен редиректить на HTTPS)
+- HTTPS: https://publisher.vyud.tech
 
 Вы должны увидеть интерфейс Streamlit приложения.
 
@@ -289,13 +289,13 @@ docker-compose restart nginx
 
 ```bash
 # Проверьте наличие сертификатов
-ls -la certbot/conf/live/publish.vyud.tech/
+ls -la certbot/conf/live/publisher.vyud.tech/
 
 # Проверьте логи Certbot
 docker-compose logs certbot
 
 # Попробуйте получить сертификат вручную
-docker-compose run --rm certbot certonly --webroot --webroot-path=/var/www/certbot -d publish.vyud.tech
+docker-compose run --rm certbot certonly --webroot --webroot-path=/var/www/certbot -d publisher.vyud.tech
 ```
 
 ### WebSocket не работает
@@ -350,7 +350,7 @@ chmod 600 .env
 ## 📝 Дополнительная информация
 
 - **Порты**: Приложение работает на порту 8501 внутри контейнера
-- **Домен**: publish.vyud.tech
+- **Домен**: publisher.vyud.tech
 - **SSL**: Автоматическое обновление через Let's Encrypt
 - **Перезапуск**: Все контейнеры настроены на автоматический перезапуск (restart: always)
 

@@ -49,7 +49,7 @@ echo -e "${YELLOW}Создание директорий для SSL сертиф�
 mkdir -p certbot/conf certbot/www
 
 # Проверка наличия SSL сертификатов
-if [ ! -d "certbot/conf/live/publish.vyud.tech" ]; then
+if [ ! -d "certbot/conf/live/publisher.vyud.tech" ]; then
     echo -e "${YELLOW}⚠ SSL сертификаты не найдены${NC}"
     echo -e "${YELLOW}Перед запуском приложения необходимо получить SSL сертификат${NC}"
     echo -e "${YELLOW}Следуйте инструкциям в DEPLOYMENT.md (Шаг 5)${NC}"
@@ -69,7 +69,7 @@ upstream streamlit {
 
 server {
     listen 80;
-    server_name publish.vyud.tech;
+    server_name publisher.vyud.tech;
 
     location / {
         proxy_pass http://streamlit;
@@ -105,10 +105,10 @@ docker-compose ps
 echo ""
 echo -e "${GREEN}=== Приложение запущено! ===${NC}"
 echo -e "Доступ к приложению:"
-if [ -d "certbot/conf/live/publish.vyud.tech" ]; then
-    echo -e "  HTTPS: ${GREEN}https://publish.vyud.tech${NC}"
+if [ -d "certbot/conf/live/publisher.vyud.tech" ]; then
+    echo -e "  HTTPS: ${GREEN}https://publisher.vyud.tech${NC}"
 fi
-echo -e "  HTTP:  ${GREEN}http://publish.vyud.tech${NC} (или http://localhost если на локальной машине)"
+echo -e "  HTTP:  ${GREEN}http://publisher.vyud.tech${NC} (или http://localhost если на локальной машине)"
 echo ""
 echo -e "Полезные команды:"
 echo -e "  Просмотр логов:        ${YELLOW}docker-compose logs -f${NC}"

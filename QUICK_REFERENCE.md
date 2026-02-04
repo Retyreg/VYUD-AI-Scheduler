@@ -71,7 +71,7 @@ docker run --rm \
   --webroot-path=/var/www/certbot \
   --email your-email@example.com \
   --agree-tos \
-  -d publish.vyud.tech
+  -d publisher.vyud.tech
 ```
 
 ### Check Certificate
@@ -81,9 +81,9 @@ docker-compose exec certbot certbot certificates
 
 ## 🌐 Access Points
 
-- **Production**: https://publish.vyud.tech
-- **HTTP**: http://publish.vyud.tech (redirects to HTTPS)
-- **Health Check**: https://publish.vyud.tech/_stcore/health
+- **Production**: https://publisher.vyud.tech
+- **HTTP**: http://publisher.vyud.tech (redirects to HTTPS)
+- **Health Check**: https://publisher.vyud.tech/_stcore/health
 
 ## 🛠️ Troubleshooting
 
@@ -95,7 +95,7 @@ docker-compose down && docker-compose up -d --build
 
 ### SSL issues
 ```bash
-ls -la certbot/conf/live/publish.vyud.tech/
+ls -la certbot/conf/live/publisher.vyud.tech/
 docker-compose logs nginx
 ```
 
@@ -167,5 +167,5 @@ docker-compose restart app
 ---
 
 **Last Updated**: 2026-02-03
-**Domain**: publish.vyud.tech
+**Domain**: publisher.vyud.tech
 **Ports**: 80 (HTTP), 443 (HTTPS), 8501 (Internal)

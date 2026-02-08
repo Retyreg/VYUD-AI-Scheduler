@@ -1,0 +1,159 @@
+<script>
+  import { onMount } from 'svelte';
+  
+  let posts = [];
+  let loading = true;
+  let error = '';
+  let currentMonth = new Date();
+  
+  const API_URL = 'https://publisher.vyud.tech/api';
+  
+  const monthNames = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 
+                      'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+  const dayNames = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+  
+  onMount(async () => {
+    await loadPosts();
+  });
+  
+  async function loadPosts() {
+    try {
+      const res = await fetch(`${API_URL}/posts/`);
+      const data = await res.json();
+      posts = [...data]; // Force reactivity
+    } catch (e) {
+      error = e.message;
+    } finally {
+      loading = false;
+    }
+  }
+  
+  function getDaysInMonth(date) {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    let startDay = firstDay.getDay() - 1;
+    if (startDay < 0) startDay = 6;
+    
+    const days = [];
+    for (let i = 0; i < startDay; i++) days.push(null);
+    for (let i = 1; i <= daysInMonth; i++) days.push(i);
+    return days;
+  }
+  
+  $: days = getDaysInMonth(currentMonth);
+  $: scheduledPosts = posts.filter(p => p.status === 'scheduled').sort((a, b) => 
+    new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime()
+  );
+  
+  function getPostsForDay(day) {
+    if (!day) return [];
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
+    return posts.filter(p => {
+      const d = new Date(p.scheduled_at);
+      return d.getFullYear() === year && d.getMonth() === month && d.getDate() === day;
+    });
+  }
+  
+  function isToday(day) {
+    if (!day) return false;
+    const today = new Date();
+    return today.getFullYear() === currentMonth.getFullYear() &&
+           today.getMonth() === currentMonth.getMonth() &&
+           today.getDate() === day;
+  }
+  
+  function formatDate(dateStr) {
+    return new Date(dateStr).toLocaleDateString('ru-RU', { 
+      day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' 
+    });
+  }
+  
+  function getStatusColor(status) {
+    if (status === 'published') return 'bg-green-500';
+    if (status === 'scheduled') return 'bg-blue-500';
+    if (status === 'failed') return 'bg-red-500';
+    return 'bg-gray-500';
+  }
+  
+  function getPlatformStyle(platform) {
+    return platform === 'telegram' 
+      ? 'bg-blue-500/20 text-blue-400' 
+      : 'bg-blue-600/20 text-blue-300';
+  }
+</script>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+  <div class="lg:col-span-2 bg-gray-800/50 rounded-xl p-6 border border-gray-700">
+    <div class="flex justify-between items-center mb-6">
+      <h2 class="text-xl font-bold text-white">{monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()} г.</h2>
+      <div class="flex gap-2">
+        <button on:click={() => currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1)} class="p-2 hover:bg-gray-700 rounded-lg text-gray-400">←</button>
+        <button on:click={() => currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1)} class="p-2 hover:bg-gray-700 rounded-lg text-gray-400">→</button>
+      </div>
+    </div>
+    
+    <div class="grid grid-cols-7 gap-1 mb-2">
+      {#each dayNames as name}
+        <div class="text-center text-sm text-gray-500 py-2">{name}</div>
+      {/each}
+    </div>
+    
+    <div class="grid grid-cols-7 gap-1">
+      {#each days as day}
+        {@const dayPosts = getPostsForDay(day)}
+        <div class="aspect-square p-1 rounded-lg {day ? 'bg-gray-700/50 hover:bg-gray-700' : ''} {isToday(day) ? 'ring-2 ring-purple-500' : ''}">
+          {#if day}
+            <div class="h-full flex flex-col">
+              <span class="text-sm text-gray-300">{day}</span>
+              {#if dayPosts.length > 0}
+                <div class="flex-1 flex flex-wrap gap-1 mt-1">
+                  {#each dayPosts as post}
+                    <div class="w-2 h-2 rounded-full {getStatusColor(post.status)}" title="{post.platform}: {post.content.substring(0, 50)}"></div>
+                  {/each}
+                </div>
+              {/if}
+            </div>
+          {/if}
+        </div>
+      {/each}
+    </div>
+    
+    <div class="mt-4 text-xs text-gray-500">
+      Всего: {posts.length} | Запланировано: {scheduledPosts.length}
+    </div>
+  </div>
+  
+  <div class="bg-gray-800/50 rounded-xl p-6 border border-gray-700">
+    <div class="flex justify-between items-center mb-4">
+      <h2 class="text-lg font-semibold text-white">Запланировано</h2>
+      <a href="/create" class="text-purple-400 hover:text-purple-300 text-sm">+ Добавить</a>
+    </div>
+    
+    {#if loading}
+      <p class="text-gray-500 text-center py-8">Загрузка...</p>
+    {:else if scheduledPosts.length === 0}
+      <div class="text-center py-8">
+        <p class="text-gray-500 mb-2">Нет запланированных постов</p>
+        <a href="/create" class="text-purple-400 hover:text-purple-300">Создать первый пост</a>
+      </div>
+    {:else}
+      <div class="space-y-3 max-h-[500px] overflow-y-auto">
+        {#each scheduledPosts as post (post.id)}
+          <div class="bg-gray-900/50 rounded-lg p-3 hover:bg-gray-900 transition">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="text-xs px-2 py-1 rounded {getPlatformStyle(post.platform)}">{post.platform}</span>
+              <span class="text-xs text-gray-500">{formatDate(post.scheduled_at)}</span>
+            </div>
+            <p class="text-sm text-gray-300 line-clamp-2">{post.content.substring(0, 100)}...</p>
+          </div>
+        {/each}
+      </div>
+    {/if}
+  </div>
+</div>
+
+<a href="/create" class="fixed bottom-6 right-6 w-14 h-14 bg-purple-600 hover:bg-purple-700 rounded-full flex items-center justify-center text-white text-2xl shadow-lg transition">+</a>

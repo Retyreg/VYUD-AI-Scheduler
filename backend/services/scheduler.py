@@ -36,7 +36,8 @@ linkedin = LinkedInService()
 async def check_and_publish_posts():
     try:
         now = datetime.now(timezone.utc)
-        posts = sb_get("posts", f"status=eq.scheduled&scheduled_at=lte.{now.isoformat()}&order=scheduled_at.asc")
+        ts = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+        posts = sb_get("posts", f"status=eq.scheduled&scheduled_at=lte.{ts}&order=scheduled_at.asc")
         for post in posts:
             try:
                 if post["platform"] == "telegram":

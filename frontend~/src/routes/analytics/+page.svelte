@@ -11,10 +11,10 @@
     const API_URL = '/api';
     
     function getToken() {
-        const session = localStorage.getItem('supabase_session');
-        if (session) {
-            const parsed = JSON.parse(session);
-            return parsed?.access_token;
+        const token = localStorage.getItem('access_token');
+        if (token) {
+            return token;
+            
         }
         return null;
     }

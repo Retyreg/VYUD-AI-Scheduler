@@ -4,28 +4,44 @@
   let posts = [];
   let loading = true;
   let error = '';
-  let currentMonth = new Date();
+  let currentDate = new Date();
   let selectedDay = null;
-  let editingPost = null;
-  let newScheduledDate = '';
-  let newScheduledTime = '';
-  let deleteConfirm = null;
+  let showModal = false;
   
-  const API_URL = 'https://publisher.vyud.tech/api';
+  $: currentMonth = currentDate.getMonth();
+  $: currentYear = currentDate.getFullYear();
+  $: monthName = currentDate.toLocaleString('ru', { month: 'long', year: 'numeric' });
+  $: daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+  $: firstDay = (() => {
+    const day = new Date(currentYear, currentMonth, 1).getDay();
+    return day === 0 ? 6 : day - 1;
+  })();
+  $: days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+  $: emptyDays = Array.from({ length: firstDay }, (_, i) => i);
   
-  const monthNames = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 
-                      'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
-  const dayNames = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+  function getAuthHeaders() {
+    const token = localStorage.getItem('access_token');
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    };
+  }
   
   onMount(async () => {
     await loadPosts();
   });
   
   async function loadPosts() {
+    loading = true;
+    error = '';
     try {
-      const res = await fetch(`${API_URL}/posts/`);
-      const data = await res.json();
-      posts = [...data];
+      const res = await fetch('/api/posts/', { headers: getAuthHeaders() });
+      if (res.status === 401) {
+        window.location.href = '/login';
+        return;
+      }
+      if (!res.ok) throw new Error('Failed to load posts');
+      posts = await res.json();
     } catch (e) {
       error = e.message;
     } finally {
@@ -33,299 +49,133 @@
     }
   }
   
-  function getDaysInMonth(date) {
-    const year = date.getFullYear();
-    const month = date.getMonth();
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const daysInMonth = lastDay.getDate();
-    let startDay = firstDay.getDay() - 1;
-    if (startDay < 0) startDay = 6;
-    
-    const days = [];
-    for (let i = 0; i < startDay; i++) days.push(null);
-    for (let i = 1; i <= daysInMonth; i++) days.push(i);
-    return days;
+  function prevMonth() {
+    currentDate = new Date(currentYear, currentMonth - 1, 1);
   }
   
-  $: calendarCells = getDaysInMonth(currentMonth).map(day => ({
-    day,
-    posts: day ? posts.filter(p => {
-      const d = new Date(p.scheduled_at);
-      return d.getFullYear() === currentMonth.getFullYear() && 
-             d.getMonth() === currentMonth.getMonth() && 
-             d.getDate() === day;
-    }) : []
-  }));
-
-  $: scheduledPosts = posts.filter(p => p.status === 'scheduled').sort((a, b) => 
-    new Date(a.scheduled_at).getTime() - new Date(b.scheduled_at).getTime()
-  );
-
-  $: selectedDayPosts = selectedDay ? (calendarCells.find(c => c.day === selectedDay)?.posts || []) : [];
-  
-  function isToday(day) {
-    if (!day) return false;
-    const today = new Date();
-    return today.getFullYear() === currentMonth.getFullYear() &&
-           today.getMonth() === currentMonth.getMonth() &&
-           today.getDate() === day;
-  }
-  
-  function formatDate(dateStr) {
-    return new Date(dateStr).toLocaleDateString('ru-RU', { 
-      day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' 
-    });
-  }
-  
-  function formatTime(dateStr) {
-    return new Date(dateStr).toLocaleTimeString('ru-RU', { 
-      hour: '2-digit', minute: '2-digit' 
-    });
-  }
-  
-  function getStatusColor(status) {
-    if (status === 'published') return 'bg-green-500';
-    if (status === 'scheduled') return 'bg-blue-500';
-    if (status === 'failed') return 'bg-red-500';
-    return 'bg-gray-500';
-  }
-
-  function getStatusLabel(status) {
-    if (status === 'published') return 'Опубликован';
-    if (status === 'scheduled') return 'Запланирован';
-    if (status === 'failed') return 'Ошибка';
-    return status;
-  }
-
-  function getPlatformIcon(platform) {
-    if (platform === 'telegram') return '✈';
-    if (platform === 'linkedin') return 'in';
-    return '?';
+  function nextMonth() {
+    currentDate = new Date(currentYear, currentMonth + 1, 1);
   }
   
   function getPlatformColor(platform) {
-    if (platform === 'telegram') return 'bg-sky-500';
-    if (platform === 'linkedin') return 'bg-blue-700';
-    return 'bg-gray-500';
+    const colors = { telegram: 'bg-blue-500', linkedin: 'bg-blue-700', vk: 'bg-sky-600' };
+    return colors[platform] || 'bg-gray-500';
   }
-
-  function selectDay(day) {
-    if (!day) return;
-    selectedDay = selectedDay === day ? null : day;
-    editingPost = null;
-    deleteConfirm = null;
+  
+  function formatTime(dateStr) {
+    return new Date(dateStr).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' });
   }
-
-  async function deletePost(postId) {
-    try {
-      const res = await fetch(`${API_URL}/posts/${postId}`, { method: 'DELETE' });
-      if (res.ok) {
-        posts = posts.filter(p => p.id !== postId);
-        deleteConfirm = null;
-        if (selectedDayPosts.length <= 1) selectedDay = null;
-      } else {
-        const data = await res.json().catch(() => ({}));
-        alert('Ошибка удаления: ' + (data.detail || res.statusText));
-      }
-    } catch (e) {
-      alert('Ошибка: ' + e.message);
-    }
+  
+  function formatDate(dateStr) {
+    return new Date(dateStr).toLocaleDateString('ru', { day: 'numeric', month: 'short' });
   }
-
-  function startReschedule(post) {
-    editingPost = post.id;
-    const dt = new Date(post.scheduled_at);
-    newScheduledDate = dt.toISOString().split('T')[0];
-    newScheduledTime = dt.toTimeString().slice(0, 5);
+  
+  function isToday(day) {
+    const today = new Date();
+    return day === today.getDate() && currentMonth === today.getMonth() && currentYear === today.getFullYear();
   }
-
-  function cancelReschedule() {
-    editingPost = null;
-    newScheduledDate = '';
-    newScheduledTime = '';
+  
+  $: scheduledPosts = posts.filter(p => p.status === 'scheduled').sort((a, b) => new Date(a.scheduled_at) - new Date(b.scheduled_at));
+  
+  $: postsMap = posts.reduce((map, post) => {
+    const d = new Date(post.scheduled_at);
+    const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+    if (!map[key]) map[key] = [];
+    map[key].push(post);
+    return map;
+  }, {});
+  
+  $: getPostsForDay = (day) => {
+    const key = `${currentYear}-${currentMonth}-${day}`;
+    return postsMap[key] || [];
+  };
+  
+  // Посты для выбранного дня в модалке
+  $: selectedDayPosts = selectedDay ? getPostsForDay(selectedDay) : [];
+  
+  function openDayModal(day) {
+    selectedDay = day;
+    showModal = true;
   }
-
-  async function reschedulePost(postId) {
-    if (!newScheduledDate || !newScheduledTime) return;
-    const newDt = new Date(newScheduledDate + 'T' + newScheduledTime + ':00');
-    const isoStr = newDt.toISOString();
-    
-    try {
-      const res = await fetch(`${API_URL}/posts/${postId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scheduled_at: isoStr })
-      });
-      if (res.ok) {
-        const updated = await res.json();
-        posts = posts.map(p => p.id === postId ? { ...p, scheduled_at: updated.scheduled_at || isoStr } : p);
-        editingPost = null;
-        selectedDay = null;
-      } else {
-        const data = await res.json().catch(() => ({}));
-        alert('Ошибка переноса: ' + (data.detail || res.statusText));
-      }
-    } catch (e) {
-      alert('Ошибка: ' + e.message);
-    }
+  
+  function closeModal() {
+    showModal = false;
+    selectedDay = null;
   }
 </script>
 
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-  <div class="lg:col-span-2 bg-gray-800/50 rounded-xl p-6 border border-gray-700">
+<svelte:head>
+  <title>Календарь — VYUD Publisher</title>
+</svelte:head>
+
+<div class="max-w-6xl mx-auto flex gap-6">
+  <div class="flex-1 bg-gray-800 rounded-xl p-6">
     <div class="flex justify-between items-center mb-6">
-      <h2 class="text-xl font-bold text-white">{monthNames[currentMonth.getMonth()]} {currentMonth.getFullYear()} г.</h2>
+      <h2 class="text-xl font-semibold capitalize">{monthName}</h2>
       <div class="flex gap-2">
-        <button on:click={() => { currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1); selectedDay = null; }} class="p-2 hover:bg-gray-700 rounded-lg text-gray-400">&#8592;</button>
-        <button on:click={() => { currentMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1); selectedDay = null; }} class="p-2 hover:bg-gray-700 rounded-lg text-gray-400">&#8594;</button>
+        <button on:click={prevMonth} class="p-2 hover:bg-gray-700 rounded-lg">←</button>
+        <button on:click={nextMonth} class="p-2 hover:bg-gray-700 rounded-lg">→</button>
       </div>
     </div>
     
     <div class="grid grid-cols-7 gap-1 mb-2">
-      {#each dayNames as name}
-        <div class="text-center text-sm text-gray-500 py-2">{name}</div>
+      {#each ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'] as dayName}
+        <div class="text-center text-gray-500 text-sm py-2">{dayName}</div>
       {/each}
     </div>
     
+    {#key posts.length + currentMonth}
     <div class="grid grid-cols-7 gap-1">
-      {#each calendarCells as cell}
+      {#each emptyDays as _, i}
+        <div class="aspect-square"></div>
+      {/each}
+      
+      {#each days as day}
+        {@const dayPosts = getPostsForDay(day)}
         <button 
-          class="aspect-square p-1.5 rounded-lg text-left transition-all
-            {cell.day ? 'bg-gray-700/50 hover:bg-gray-600/50 cursor-pointer' : 'cursor-default'} 
-            {isToday(cell.day) ? 'ring-2 ring-purple-500' : ''} 
-            {selectedDay === cell.day && cell.day ? 'ring-2 ring-white bg-gray-600/70' : ''}"
-          on:click={() => selectDay(cell.day)}
+          on:click={() => openDayModal(day)}
+          class="aspect-square bg-gray-700/50 rounded-lg p-1 text-left hover:bg-gray-600/50 transition cursor-pointer {isToday(day) ? 'ring-2 ring-purple-500' : ''}"
         >
-          {#if cell.day}
-            <div class="h-full flex flex-col">
-              <span class="text-sm text-gray-300">{cell.day}</span>
-              {#if cell.posts.length > 0}
-                <div class="flex flex-wrap gap-0.5 mt-1">
-                  {#each cell.posts as post}
-                    <span 
-                      class="inline-flex items-center justify-center w-5 h-5 rounded text-[9px] font-bold text-white {getPlatformColor(post.platform)} {post.status === 'failed' ? 'opacity-50' : ''}"
-                      title="{post.platform} ({getStatusLabel(post.status)}): {post.content.substring(0, 80)}"
-                    >
-                      {getPlatformIcon(post.platform)}
-                    </span>
-                  {/each}
+          <div class="text-xs text-gray-400">{day}</div>
+          {#if dayPosts.length > 0}
+            <div class="flex flex-wrap gap-0.5 mt-1">
+              {#each dayPosts.slice(0, 4) as post}
+                <div class="w-5 h-5 {getPlatformColor(post.platform)} rounded text-[10px] flex items-center justify-center text-white font-bold">
+                  {#if post.platform === 'telegram'}✈{:else if post.platform === 'linkedin'}in{:else}V{/if}
                 </div>
+              {/each}
+              {#if dayPosts.length > 4}
+                <div class="w-5 h-5 bg-gray-600 rounded text-[10px] flex items-center justify-center">+{dayPosts.length - 4}</div>
               {/if}
             </div>
           {/if}
         </button>
       {/each}
     </div>
+    {/key}
     
-    <div class="mt-4 flex flex-wrap items-center gap-4 text-xs text-gray-500">
-      <span>Всего: {posts.length} | Запланировано: {scheduledPosts.length}</span>
-      <span class="flex items-center gap-1"><span class="w-4 h-4 rounded bg-sky-500 inline-flex items-center justify-center text-[8px] text-white font-bold">&#9992;</span> Telegram</span>
-      <span class="flex items-center gap-1"><span class="w-4 h-4 rounded bg-blue-700 inline-flex items-center justify-center text-[8px] text-white font-bold">in</span> LinkedIn</span>
-    </div>
-
-    {#if selectedDay && selectedDayPosts.length > 0}
-      <div class="mt-4 bg-gray-900/70 rounded-xl p-4 border border-gray-600">
-        <div class="flex justify-between items-center mb-3">
-          <h3 class="text-white font-semibold">{selectedDay} {monthNames[currentMonth.getMonth()]} — {selectedDayPosts.length} пост{selectedDayPosts.length > 1 ? (selectedDayPosts.length < 5 ? 'а' : 'ов') : ''}</h3>
-          <button on:click={() => { selectedDay = null; editingPost = null; deleteConfirm = null; }} class="text-gray-500 hover:text-white text-lg">&#10005;</button>
-        </div>
-        
-        <div class="space-y-3">
-          {#each selectedDayPosts as post (post.id)}
-            <div class="bg-gray-800 rounded-lg p-3 border border-gray-700">
-              <div class="flex items-center justify-between mb-2">
-                <div class="flex items-center gap-2">
-                  <span class="text-xs px-2 py-1 rounded font-medium text-white {getPlatformColor(post.platform)}">{post.platform}</span>
-                  <span class="text-xs px-2 py-0.5 rounded {getStatusColor(post.status)} text-white">{getStatusLabel(post.status)}</span>
-                  <span class="text-xs text-gray-500">{formatTime(post.scheduled_at)}</span>
-                </div>
-              </div>
-              
-              <p class="text-sm text-gray-300 mb-3 whitespace-pre-wrap">{post.content.substring(0, 200)}{post.content.length > 200 ? '...' : ''}</p>
-              
-              <div class="flex gap-2">
-                {#if post.status === 'scheduled'}
-                  <button 
-                    on:click={() => startReschedule(post)} 
-                    class="text-xs px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-gray-300 transition"
-                  >
-                    &#128197; Перенести
-                  </button>
-                {/if}
-                
-                {#if deleteConfirm === post.id}
-                  <span class="text-xs text-red-400 py-1.5">Точно удалить?</span>
-                  <button 
-                    on:click={() => deletePost(post.id)} 
-                    class="text-xs px-3 py-1.5 rounded bg-red-600 hover:bg-red-700 text-white transition"
-                  >
-                    Да
-                  </button>
-                  <button 
-                    on:click={() => deleteConfirm = null} 
-                    class="text-xs px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-gray-300 transition"
-                  >
-                    Отмена
-                  </button>
-                {:else}
-                  <button 
-                    on:click={() => deleteConfirm = post.id} 
-                    class="text-xs px-3 py-1.5 rounded bg-gray-700 hover:bg-red-600/20 text-red-400 transition"
-                  >
-                    &#128465; Удалить
-                  </button>
-                {/if}
-              </div>
-
-              {#if editingPost === post.id}
-                <div class="mt-3 p-3 bg-gray-900 rounded-lg border border-gray-600">
-                  <p class="text-xs text-gray-400 mb-2">Новая дата и время:</p>
-                  <div class="flex flex-wrap gap-2 items-center">
-                    <input type="date" bind:value={newScheduledDate} class="text-sm bg-gray-800 border border-gray-600 rounded px-2 py-1.5 text-white" />
-                    <input type="time" bind:value={newScheduledTime} class="text-sm bg-gray-800 border border-gray-600 rounded px-2 py-1.5 text-white" />
-                    <button on:click={() => reschedulePost(post.id)} class="text-xs px-3 py-1.5 rounded bg-purple-600 hover:bg-purple-700 text-white transition">Сохранить</button>
-                    <button on:click={cancelReschedule} class="text-xs px-3 py-1.5 rounded bg-gray-700 hover:bg-gray-600 text-gray-300 transition">Отмена</button>
-                  </div>
-                </div>
-              {/if}
-            </div>
-          {/each}
-        </div>
-      </div>
-    {:else if selectedDay}
-      <div class="mt-4 bg-gray-900/70 rounded-xl p-4 border border-gray-600">
-        <div class="flex justify-between items-center">
-          <p class="text-gray-500 text-sm">{selectedDay} {monthNames[currentMonth.getMonth()]} — нет постов</p>
-          <button on:click={() => selectedDay = null} class="text-gray-500 hover:text-white text-lg">&#10005;</button>
-        </div>
-        <a href="/create" class="text-purple-400 hover:text-purple-300 text-sm mt-2 inline-block">+ Создать пост на этот день</a>
-      </div>
-    {/if}
+    <div class="mt-4 text-sm text-gray-500">Всего: {posts.length} | Запланировано: {scheduledPosts.length}</div>
   </div>
   
-  <div class="bg-gray-800/50 rounded-xl p-6 border border-gray-700">
+  <div class="w-80 bg-gray-800 rounded-xl p-6">
     <div class="flex justify-between items-center mb-4">
-      <h2 class="text-lg font-semibold text-white">Запланировано</h2>
+      <h3 class="font-semibold">Запланировано</h3>
       <a href="/create" class="text-purple-400 hover:text-purple-300 text-sm">+ Добавить</a>
     </div>
     
     {#if loading}
-      <p class="text-gray-500 text-center py-8">Загрузка...</p>
+      <div class="text-gray-400">Загрузка...</div>
     {:else if scheduledPosts.length === 0}
-      <div class="text-center py-8">
-        <p class="text-gray-500 mb-2">Нет запланированных постов</p>
-        <a href="/create" class="text-purple-400 hover:text-purple-300">Создать первый пост</a>
-      </div>
+      <div class="text-gray-400">Нет запланированных постов</div>
     {:else}
       <div class="space-y-3 max-h-[600px] overflow-y-auto">
-        {#each scheduledPosts as post (post.id)}
-          <div class="bg-gray-900/50 rounded-lg p-3 hover:bg-gray-900 transition">
+        {#each scheduledPosts as post}
+          <div class="bg-gray-700/50 rounded-lg p-3">
             <div class="flex items-center gap-2 mb-2">
-              <span class="text-xs px-2 py-1 rounded font-medium text-white {getPlatformColor(post.platform)}">{post.platform}</span>
-              <span class="text-xs text-gray-500">{formatDate(post.scheduled_at)}</span>
+              <span class="px-2 py-0.5 {getPlatformColor(post.platform)} rounded text-xs">{post.platform}</span>
+              <span class="text-xs text-gray-400">{formatDate(post.scheduled_at)}, {formatTime(post.scheduled_at)}</span>
             </div>
-            <p class="text-sm text-gray-300 line-clamp-2">{post.content.substring(0, 100)}...</p>
+            <p class="text-sm text-gray-300 line-clamp-3">{post.content}</p>
           </div>
         {/each}
       </div>
@@ -333,4 +183,39 @@
   </div>
 </div>
 
-<a href="/create" class="fixed bottom-6 right-6 w-14 h-14 bg-purple-600 hover:bg-purple-700 rounded-full flex items-center justify-center text-white text-2xl shadow-lg transition">+</a>
+<!-- Modal для просмотра постов дня -->
+{#if showModal}
+<div class="fixed inset-0 bg-black/70 flex items-center justify-center z-50" on:click={closeModal}>
+  <div class="bg-gray-800 rounded-xl p-6 w-full max-w-lg max-h-[80vh] overflow-y-auto" on:click|stopPropagation>
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="text-lg font-semibold">
+        {selectedDay} {currentDate.toLocaleString('ru', { month: 'long' })} {currentYear}
+      </h3>
+      <button on:click={closeModal} class="text-gray-400 hover:text-white text-2xl">&times;</button>
+    </div>
+    
+    {#if selectedDayPosts.length === 0}
+      <p class="text-gray-400 text-center py-8">Нет постов на этот день</p>
+      <a href="/create" class="block text-center py-3 bg-purple-600 hover:bg-purple-700 rounded-lg transition">
+        + Создать пост
+      </a>
+    {:else}
+      <div class="space-y-4">
+        {#each selectedDayPosts as post}
+          <div class="bg-gray-700/50 rounded-lg p-4">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="px-2 py-1 {getPlatformColor(post.platform)} rounded text-xs font-medium">{post.platform}</span>
+              <span class="text-sm text-gray-400">{formatTime(post.scheduled_at)}</span>
+              <span class="text-xs px-2 py-0.5 rounded {post.status === 'published' ? 'bg-green-600' : post.status === 'scheduled' ? 'bg-yellow-600' : 'bg-gray-600'}">{post.status}</span>
+            </div>
+            <p class="text-gray-200 whitespace-pre-wrap">{post.content}</p>
+          </div>
+        {/each}
+      </div>
+      <a href="/create" class="block text-center py-3 mt-4 bg-purple-600 hover:bg-purple-700 rounded-lg transition">
+        + Добавить ещё
+      </a>
+    {/if}
+  </div>
+</div>
+{/if}

@@ -23,7 +23,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="VYUD Publisher API",
     description="API for autoposting and AI content generation",
-    version="2.2.0",
+    version="2.3.0",
     lifespan=lifespan
 )
 
@@ -35,16 +35,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-from routers import posts, accounts, ai, prompts
+from routers import posts, accounts, ai, prompts, auth, analytics
 
+app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(posts.router, prefix="/api/posts", tags=["posts"])
 app.include_router(accounts.router, prefix="/api/accounts", tags=["accounts"])
 app.include_router(ai.router, prefix="/api/ai", tags=["ai"])
 app.include_router(prompts.router, prefix="/api/prompts", tags=["prompts"])
+app.include_router(analytics.router, prefix="/api", tags=["analytics"])
 
 @app.get("/")
 async def root():
-    return {"status": "ok", "service": "VYUD Publisher API", "version": "2.2.0"}
+    return {"status": "ok", "service": "VYUD Publisher API", "version": "2.3.0"}
 
 @app.get("/health")
 async def health():

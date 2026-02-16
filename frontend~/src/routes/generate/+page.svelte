@@ -12,7 +12,7 @@
   let planDays = 7;
   let contentPlan = [];
   
-  const API_URL = 'https://publisher.vyud.tech/api';
+  const API_URL = '/api';
   
   const tones = [
     { value: 'professional', label: 'Профессиональный' },
@@ -22,8 +22,16 @@
     { value: 'inspiring', label: 'Вдохновляющий' }
   ];
   
+  function getAuthHeaders() {
+    const token = localStorage.getItem('access_token');
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    };
+  }
+  
   onMount(async () => {
-    const res = await fetch(`${API_URL}/ai/models`);
+    const res = await fetch(`${API_URL}/ai/models`, { headers: getAuthHeaders() });
     models = await res.json();
   });
   
@@ -35,7 +43,7 @@
     try {
       const res = await fetch(`${API_URL}/ai/generate-post`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ topic, platform, tone, model: selectedModel })
       });
       const data = await res.json();
@@ -59,7 +67,7 @@
     try {
       const res = await fetch(`${API_URL}/ai/content-plan`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ topic, platform, days: planDays, model: selectedModel })
       });
       const data = await res.json();
@@ -123,12 +131,24 @@
         <div class="flex gap-2">
           <button class="flex-1 py-2 rounded-lg transition {platform === 'telegram' ? 'bg-purple-600 text-white' : 'bg-gray-700 text-gray-300'}" on:click={() => platform = 'telegram'}>Telegram</button>
           <button class="flex-1 py-2 rounded-lg transition {platform === 'linkedin' ? 'bg-purple-600 text-white' : 'bg-gray-700 text-gray-300'}" on:click={() => platform = 'linkedin'}>LinkedIn</button>
+          <button class="flex-1 py-2 rounded-lg transition {platform === 'vk' ? 'bg-purple-600 text-white' : 'bg-gray-700 text-gray-300'}" on:click={() => platform = 'vk'}>VK</button>
         </div>
       </div>
       
       <div class="mb-4">
-        <label class="block text-sm text-gray-400 mb-1">Тема</label>
-        <input type="text" bind:value={topic} placeholder="AI в бизнесе, продуктивность..." class="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:border-purple-500 focus:outline-none" />
+        <label class="block text-sm text-gray-400 mb-1">Тема / Промпт</label>
+        <textarea 
+          bind:value={topic} 
+          placeholder="Опишите тему поста, ключевые тезисы, целевую аудиторию...
+
+Например:
+- AI в бизнесе — как автоматизировать рутину
+- Продуктивность для предпринимателей
+- Кейс: увеличили конверсию на 30%"
+          rows="6"
+          class="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:border-purple-500 focus:outline-none resize-none"
+        ></textarea>
+        <div class="text-right text-xs text-gray-500 mt-1">{topic.length} символов</div>
       </div>
       
       {#if activeTab === 'post'}
@@ -159,7 +179,7 @@
       
       {#if activeTab === 'post'}
         {#if generatedContent}
-          <div class="bg-gray-900 rounded-lg p-4 mb-4 min-h-[200px] whitespace-pre-wrap text-gray-200">{generatedContent}</div>
+          <div class="bg-gray-900 rounded-lg p-4 mb-4 min-h-[200px] max-h-[400px] overflow-y-auto whitespace-pre-wrap text-gray-200">{generatedContent}</div>
           <div class="flex gap-2">
             <button on:click={copyToClipboard} class="flex-1 bg-gray-700 hover:bg-gray-600 text-white py-2 rounded-lg transition">📋 Копировать</button>
             <button on:click={schedulePost} class="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg transition">📅 Запланировать</button>

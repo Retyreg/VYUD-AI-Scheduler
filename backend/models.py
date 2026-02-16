@@ -6,6 +6,7 @@ from enum import Enum
 class Platform(str, Enum):
     telegram = "telegram"
     linkedin = "linkedin"
+    vk = "vk"
 
 class PostStatus(str, Enum):
     draft = "draft"

@@ -9,19 +9,20 @@ class AIService:
         # OpenAI
         "gpt-4o": {"provider": "openai", "model": "gpt-4o"},
         "gpt-4o-mini": {"provider": "openai", "model": "gpt-4o-mini"},
-        # Anthropic
+        # Anthropic (обновлённые модели)
+        "claude-sonnet-4": {"provider": "anthropic", "model": "claude-sonnet-4-20250514"},
         "claude-3.5-sonnet": {"provider": "anthropic", "model": "claude-3-5-sonnet-20241022"},
-        "claude-3-haiku": {"provider": "anthropic", "model": "claude-3-haiku-20240307"},
-        # Google
-        "gemini-pro": {"provider": "google", "model": "gemini-1.5-pro"},
-        "gemini-flash": {"provider": "google", "model": "gemini-1.5-flash"},
-        # Groq (fast inference)
-        "llama-3.1-70b": {"provider": "groq", "model": "llama-3.1-70b-versatile"},
+        "claude-3.5-haiku": {"provider": "anthropic", "model": "claude-3-5-haiku-20241022"},
+        # Google (обновлённые модели)
+        "gemini-2.0-flash": {"provider": "google", "model": "gemini-2.0-flash"},
+        "gemini-1.5-flash": {"provider": "google", "model": "gemini-1.5-flash"},
+        # Groq (актуальные модели)
+        "llama-3.3-70b": {"provider": "groq", "model": "llama-3.3-70b-versatile"},
         "llama-3.1-8b": {"provider": "groq", "model": "llama-3.1-8b-instant"},
-        "mixtral-8x7b": {"provider": "groq", "model": "mixtral-8x7b-32768"},
-        # HuggingFace
+        "gemma2-9b": {"provider": "groq", "model": "gemma2-9b-it"},
+        # HuggingFace (через новый router)
         "qwen-72b": {"provider": "huggingface", "model": "Qwen/Qwen2.5-72B-Instruct"},
-        "llama-3-70b-hf": {"provider": "huggingface", "model": "meta-llama/Meta-Llama-3-70B-Instruct"},
+        "llama-3.1-70b-hf": {"provider": "huggingface", "model": "meta-llama/Llama-3.1-70B-Instruct"},
     }
     
     def __init__(self):
@@ -97,20 +98,23 @@ class AIService:
             data = response.json()
             if "content" in data:
                 return {"ok": True, "text": data["content"][0]["text"]}
-            return {"ok": False, "error": data.get("error", {}).get("message", "Unknown error")}
+            return {"ok": False, "error": data.get("error", {}).get("message", str(data))}
     
     async def _google(self, prompt: str, model: str, system: str, max_tokens: int) -> dict:
         full_prompt = f"{system}\n\n{prompt}" if system else prompt
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={self.google_key}",
-                json={"contents": [{"parts": [{"text": full_prompt}]}]},
+                json={
+                    "contents": [{"parts": [{"text": full_prompt}]}],
+                    "generationConfig": {"maxOutputTokens": max_tokens}
+                },
                 timeout=60
             )
             data = response.json()
             if "candidates" in data:
                 return {"ok": True, "text": data["candidates"][0]["content"]["parts"][0]["text"]}
-            return {"ok": False, "error": data.get("error", {}).get("message", "Unknown error")}
+            return {"ok": False, "error": data.get("error", {}).get("message", str(data))}
     
     async def _groq(self, prompt: str, model: str, system: str, max_tokens: int) -> dict:
         messages = []
@@ -128,24 +132,32 @@ class AIService:
             data = response.json()
             if "choices" in data:
                 return {"ok": True, "text": data["choices"][0]["message"]["content"]}
-            return {"ok": False, "error": data.get("error", {}).get("message", "Unknown error")}
+            return {"ok": False, "error": data.get("error", {}).get("message", str(data))}
     
     async def _huggingface(self, prompt: str, model: str, system: str, max_tokens: int) -> dict:
-        full_prompt = f"{system}\n\nUser: {prompt}\n\nAssistant:" if system else f"User: {prompt}\n\nAssistant:"
+        """HuggingFace через новый router API"""
+        messages = []
+        if system:
+            messages.append({"role": "system", "content": system})
+        messages.append({"role": "user", "content": prompt})
+        
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                f"https://api-inference.huggingface.co/models/{model}",
-                headers={"Authorization": f"Bearer {self.huggingface_key}"},
-                json={"inputs": full_prompt, "parameters": {"max_new_tokens": max_tokens}},
+                f"https://router.huggingface.co/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {self.huggingface_key}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": model,
+                    "messages": messages,
+                    "max_tokens": max_tokens
+                },
                 timeout=120
             )
             data = response.json()
-            if isinstance(data, list) and len(data) > 0:
-                text = data[0].get("generated_text", "")
-                # Remove prompt from response
-                if "Assistant:" in text:
-                    text = text.split("Assistant:")[-1].strip()
-                return {"ok": True, "text": text}
+            if "choices" in data:
+                return {"ok": True, "text": data["choices"][0]["message"]["content"]}
             return {"ok": False, "error": str(data)}
     
     def get_available_models(self) -> list:

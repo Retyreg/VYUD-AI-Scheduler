@@ -1,163 +1,187 @@
 <script>
+  import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
   
   let content = '';
   let platform = 'telegram';
   let scheduledDate = '';
   let scheduledTime = '12:00';
-  let saving = false;
+  let loading = false;
   let error = '';
-  let success = false;
+  let accounts = [];
   
-  const API_URL = 'https://publisher.vyud.tech/api';
+  const platforms = [
+    { id: 'telegram', name: 'Telegram', color: 'bg-blue-500' },
+    { id: 'linkedin', name: 'LinkedIn', color: 'bg-blue-700' },
+    { id: 'vk', name: 'VK', color: 'bg-sky-600' }
+  ];
   
-  const limits = { telegram: 4096, linkedin: 3000 };
+  function getAuthHeaders() {
+    const token = localStorage.getItem('access_token');
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    };
+  }
   
-  $: charCount = content.length;
-  $: charLimit = limits[platform];
-  $: isOverLimit = charCount > charLimit;
-  
-  onMount(() => {
-    // Загружаем черновик из AI генератора
-    const draft = localStorage.getItem('draft_content');
+  onMount(async () => {
+    // Устанавливаем дату по умолчанию - завтра
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    scheduledDate = tomorrow.toISOString().split('T')[0];
+    
+    // Читаем draft из AI генератора
+    const draftContent = localStorage.getItem('draft_content');
     const draftPlatform = localStorage.getItem('draft_platform');
-    if (draft) {
-      content = draft;
+    
+    if (draftContent) {
+      content = draftContent;
       localStorage.removeItem('draft_content');
     }
     if (draftPlatform) {
       platform = draftPlatform;
       localStorage.removeItem('draft_platform');
     }
+    
+    // Загружаем аккаунты
+    try {
+      const res = await fetch('/api/accounts/', { headers: getAuthHeaders() });
+      if (res.ok) {
+        accounts = await res.json();
+      }
+    } catch (e) {
+      console.error('Failed to load accounts', e);
+    }
   });
   
-  async function handleSubmit() {
-    if (!content.trim() || !scheduledDate || isOverLimit) {
-      error = 'Заполните все поля';
+  async function createPost() {
+    if (!content.trim()) {
+      error = 'Введите текст поста';
+      return;
+    }
+    if (!scheduledDate || !scheduledTime) {
+      error = 'Укажите дату и время публикации';
       return;
     }
     
-    saving = true;
+    loading = true;
     error = '';
     
     try {
-      const scheduledAt = new Date(`${scheduledDate}T${scheduledTime}`).toISOString();
+      const scheduledAt = new Date(`${scheduledDate}T${scheduledTime}:00`).toISOString();
+      const account = accounts.find(a => a.platform === platform && a.is_active);
       
-      const res = await fetch(`${API_URL}/posts/`, {
+      const res = await fetch('/api/posts/', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content, platform, scheduled_at: scheduledAt })
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          content,
+          platform,
+          scheduled_at: scheduledAt,
+          channel_id: account?.channel_id || null
+        })
       });
       
-      if (res.ok) {
-        success = true;
-        setTimeout(() => { window.location.href = '/'; }, 1500);
-      } else {
+      if (!res.ok) {
         const data = await res.json();
-        error = data.detail || 'Ошибка сохранения';
+        throw new Error(data.detail || 'Ошибка создания поста');
       }
+      
+      goto('/');
     } catch (e) {
-      error = 'Ошибка соединения с сервером';
+      error = e.message;
     } finally {
-      saving = false;
+      loading = false;
     }
   }
+  
+  $: connectedPlatforms = accounts.filter(a => a.is_active).map(a => a.platform);
+  $: isPlatformConnected = connectedPlatforms.includes(platform);
 </script>
 
+<svelte:head>
+  <title>Создать пост — VYUD Publisher</title>
+</svelte:head>
+
 <div class="max-w-4xl mx-auto">
-  <h1 class="text-2xl font-bold text-purple-400 mb-6">Создать пост</h1>
+  <h1 class="text-2xl font-bold mb-6">Создать пост</h1>
   
-  {#if success}
-    <div class="bg-green-500/20 border border-green-500 rounded-lg p-4 mb-6">
-      ✅ Пост успешно запланирован!
-    </div>
-  {/if}
-  
-  {#if error}
-    <div class="bg-red-500/20 border border-red-500 rounded-lg p-4 mb-6">
-      ❌ {error}
-    </div>
-  {/if}
-  
-  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-    <div class="bg-gray-800/50 rounded-xl p-6 border border-gray-700">
+  <div class="grid grid-cols-2 gap-6">
+    <!-- Editor -->
+    <div class="bg-gray-800 rounded-xl p-6">
       <div class="mb-4">
-        <label class="block text-sm text-gray-400 mb-1">Платформа</label>
+        <label class="block text-sm text-gray-400 mb-2">Платформа</label>
         <div class="flex gap-2">
-          <button class="flex-1 py-2 rounded-lg transition {platform === 'telegram' ? 'bg-purple-600 text-white' : 'bg-gray-700 text-gray-300'}" on:click={() => platform = 'telegram'}>Telegram</button>
-          <button class="flex-1 py-2 rounded-lg transition {platform === 'linkedin' ? 'bg-purple-600 text-white' : 'bg-gray-700 text-gray-300'}" on:click={() => platform = 'linkedin'}>LinkedIn</button>
+          {#each platforms as p}
+            <button 
+              on:click={() => platform = p.id}
+              class="px-4 py-2 rounded-lg transition {platform === p.id ? p.color + ' text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}"
+            >
+              {p.name}
+            </button>
+          {/each}
         </div>
+        {#if !isPlatformConnected && accounts.length > 0}
+          <p class="text-yellow-500 text-sm mt-2">⚠️ {platform} не подключён. <a href="/settings" class="underline">Подключить</a></p>
+        {/if}
+      </div>
+      
+      <div class="mb-4">
+        <label class="block text-sm text-gray-400 mb-2">Текст поста</label>
+        <textarea 
+          bind:value={content}
+          class="w-full h-48 bg-gray-700 rounded-lg p-3 border border-gray-600 focus:border-purple-500 focus:outline-none resize-none"
+          placeholder="Введите текст поста..."
+        ></textarea>
+        <div class="text-right text-sm text-gray-500 mt-1">{content.length} символов</div>
       </div>
       
       <div class="grid grid-cols-2 gap-4 mb-4">
         <div>
-          <label class="block text-sm text-gray-400 mb-1">Дата</label>
-          <input type="date" bind:value={scheduledDate} class="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-purple-500 focus:outline-none" />
+          <label class="block text-sm text-gray-400 mb-2">Дата</label>
+          <input 
+            type="date" 
+            bind:value={scheduledDate}
+            class="w-full bg-gray-700 rounded-lg p-3 border border-gray-600 focus:border-purple-500 focus:outline-none"
+          />
         </div>
         <div>
-          <label class="block text-sm text-gray-400 mb-1">Время</label>
-          <input type="time" bind:value={scheduledTime} class="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-purple-500 focus:outline-none" />
+          <label class="block text-sm text-gray-400 mb-2">Время</label>
+          <input 
+            type="time" 
+            bind:value={scheduledTime}
+            class="w-full bg-gray-700 rounded-lg p-3 border border-gray-600 focus:border-purple-500 focus:outline-none"
+          />
         </div>
       </div>
       
-      <div class="mb-4">
-        <div class="flex justify-between mb-1">
-          <label class="text-sm text-gray-400">Текст поста</label>
-          <span class="text-sm {isOverLimit ? 'text-red-400' : 'text-gray-400'}">{charCount} / {charLimit}</span>
-        </div>
-        <textarea 
-          bind:value={content}
-          placeholder="Напишите текст поста..."
-          rows="8"
-          class="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:border-purple-500 focus:outline-none resize-none"
-        ></textarea>
-      </div>
+      {#if error}
+        <div class="bg-red-900/50 border border-red-700 text-red-300 px-4 py-3 rounded-lg mb-4">{error}</div>
+      {/if}
       
       <button 
-        on:click={handleSubmit}
-        disabled={saving || !content.trim() || !scheduledDate || isOverLimit}
-        class="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 text-white py-3 rounded-lg font-medium transition"
+        on:click={createPost}
+        disabled={loading}
+        class="w-full py-3 bg-purple-600 hover:bg-purple-700 rounded-lg font-medium transition disabled:opacity-50"
       >
-        {saving ? 'Сохранение...' : 'Запланировать пост'}
+        {loading ? 'Создание...' : 'Запланировать пост'}
       </button>
     </div>
     
-    <!-- Превью -->
-    <div class="bg-gray-800/50 rounded-xl p-6 border border-gray-700">
-      <h2 class="text-lg font-semibold text-purple-300 mb-4">Превью</h2>
-      
-      {#if platform === 'telegram'}
-        <div class="bg-gray-900 rounded-lg p-4">
-          <div class="flex items-center gap-3 mb-3">
-            <div class="w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center text-white font-bold">V</div>
-            <div>
-              <p class="font-medium text-white">VYUD AI</p>
-              <p class="text-xs text-gray-400">канал</p>
-            </div>
+    <!-- Preview -->
+    <div class="bg-gray-800 rounded-xl p-6">
+      <h3 class="text-sm text-gray-400 mb-4">Предпросмотр</h3>
+      <div class="bg-gray-700 rounded-lg p-4">
+        <div class="flex items-center gap-2 mb-3">
+          <div class="w-10 h-10 {platforms.find(p => p.id === platform)?.color} rounded-full flex items-center justify-center font-bold">
+            {platform === 'telegram' ? '✈' : platform === 'linkedin' ? 'in' : 'VK'}
           </div>
-          <p class="text-gray-200 whitespace-pre-wrap">{content || 'Текст вашего поста появится здесь...'}</p>
-          <p class="text-xs text-gray-500 mt-2">{scheduledTime || '12:00'}</p>
-        </div>
-      {:else}
-        <div class="bg-white rounded-lg p-4 text-gray-900">
-          <div class="flex items-center gap-3 mb-3">
-            <div class="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold">V</div>
-            <div>
-              <p class="font-semibold">VYUD AI</p>
-              <p class="text-xs text-gray-500">Company • Technology</p>
-            </div>
+          <div>
+            <div class="font-medium">VYUD AI</div>
+            <div class="text-xs text-gray-400">{scheduledDate} {scheduledTime}</div>
           </div>
-          <p class="whitespace-pre-wrap">{content || 'Текст вашего поста появится здесь...'}</p>
         </div>
-      {/if}
-      
-      <div class="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-        <p class="text-yellow-400 text-sm font-medium">💡 Советы</p>
-        <ul class="text-gray-400 text-sm mt-1 space-y-1">
-          <li>• Используйте эмодзи для привлечения внимания</li>
-          <li>• Неформальный тон работает лучше</li>
-          <li>• Добавьте призыв к действию</li>
-        </ul>
+        <p class="whitespace-pre-wrap text-gray-200">{content || 'Текст поста появится здесь...'}</p>
       </div>
     </div>
   </div>

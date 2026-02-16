@@ -60,7 +60,7 @@ async def get_account_credentials(user_id: str, platform: str, token: str):
     """Получить credentials аккаунта"""
     async with httpx.AsyncClient() as client:
         response = await client.get(
-            f"{SUPABASE_URL}/rest/v1/accounts",
+            f"{SUPABASE_URL}/rest/v1/publisher_accounts",
             headers={
                 "apikey": SUPABASE_KEY,
                 "Authorization": f"Bearer {token}"

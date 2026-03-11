@@ -8,6 +8,63 @@
 
 Part of the **VYUD AI ecosystem** ([vyud.tech](https://vyud.tech)) - transforming content creation through artificial intelligence.
 
+## ⚡ Quick Start (Local Development)
+
+### Prerequisites
+- Python 3.8+
+- Git
+
+### 1. Clone the repository
+```bash
+git clone https://github.com/Retyreg/VYUD-AI-Scheduler.git
+cd VYUD-AI-Scheduler
+```
+
+### 2. Install Python dependencies
+```bash
+pip install -r requirements.txt
+```
+
+### 3. Configure environment variables
+```bash
+cp .env.example .env
+```
+Open `.env` in your editor and replace the placeholder values with your real API keys:
+```
+GROQ_API_KEY=your-groq-api-key-here
+TELEGRAM_BOT_TOKEN=your-telegram-bot-token-here
+TELEGRAM_CHAT_ID=your-telegram-chat-id-here
+LINKEDIN_ACCESS_TOKEN=your-linkedin-access-token-here
+LINKEDIN_PROFILE_ID=your-linkedin-profile-id-here
+```
+
+*(Optional)* If you use the Google Gemini integration in Streamlit, also copy the Streamlit secrets template:
+```bash
+cp .streamlit/secrets.toml.example .streamlit/secrets.toml
+```
+Then open `.streamlit/secrets.toml` and add your `GEMINI_API_KEY`.
+
+### 4. Run the application
+
+**Flask API server** (port 5000):
+```bash
+python app.py
+```
+
+**Streamlit UI** (port 8501) — in a separate terminal:
+```bash
+streamlit run streamlit_app.py
+```
+
+**Auto-posting script** (generate and post AI content):
+```bash
+python auto_post.py
+```
+
+> **Note:** The Flask API must be running before starting the Streamlit UI.
+
+---
+
 ## 🚀 Features
 
 ### Content Management

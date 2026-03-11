@@ -3,5 +3,5 @@ node_modules
 dist/
 __pycache__/
 *.pyc
-excludes secrets.toml
+.streamlit/secrets.toml
 posts.db

@@ -35,6 +35,7 @@ if menu == "Create Post":
                 "status": status,
                 "timestamp": timestamp,
             },
+            timeout=REQUEST_TIMEOUT,
         )
         if response.status_code == 201:
             st.success("Post created successfully!")
@@ -45,7 +46,7 @@ elif menu == "View History":
     st.header("Post History")
 
     # Получение истории через API
-    response = requests.get(f"{BASE_URL}/post/history")
+    response = requests.get(f"{BASE_URL}/post/history", timeout=REQUEST_TIMEOUT)
     if response.status_code == 200:
         history = response.json()
         if history:

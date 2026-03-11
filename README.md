@@ -29,7 +29,25 @@ pip install -r requirements.txt
 ```bash
 cp .env.example .env
 ```
-Open `.env` in your editor and replace the placeholder values with your real API keys:
+Open `.env` in your terminal editor and replace the placeholder values with your real API keys.
+
+**Choose any editor you like:**
+
+```bash
+# nano — simplest, beginner-friendly (save: Ctrl+O → Enter → Ctrl+X)
+nano .env
+
+# vim — classic terminal editor (save & exit: Esc → :wq → Enter)
+vim .env
+
+# VS Code (if installed)
+code .env
+
+# macOS default app (opens in TextEdit or your associated editor)
+open .env
+```
+
+The file contains these variables — fill in the real values:
 ```
 GROQ_API_KEY=your-groq-api-key-here
 TELEGRAM_BOT_TOKEN=your-telegram-bot-token-here

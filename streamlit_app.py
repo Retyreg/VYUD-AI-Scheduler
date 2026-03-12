@@ -1,8 +1,12 @@
 import calendar
+import os
 import streamlit as st
 import requests
 from collections import defaultdict
 from datetime import datetime, date
+from dotenv import load_dotenv
+
+load_dotenv()
 
 MAX_PREVIEW_LENGTH = 100
 REQUEST_TIMEOUT = 10
@@ -14,7 +18,7 @@ st.title("Post History Manager 🚀")
 BASE_URL = "http://127.0.0.1:5000"  # Замените на свой URL, если используется другое API
 
 # Выбор действия в интерфейсе
-menu = st.sidebar.selectbox("Menu", ["Create Post", "View History", "Calendar"])
+menu = st.sidebar.selectbox("Menu", ["Create Post", "View History", "Calendar", "Configuration Status"])
 
 if menu == "Create Post":
     st.header("Create a New Post")
@@ -131,3 +135,35 @@ elif menu == "Calendar":
             st.info("No posts in history.")
     else:
         st.error("Failed to fetch history.")
+
+elif menu == "Configuration Status":
+    st.header("Configuration Status ⚙️")
+    st.write("Shows which API keys are loaded from your `.env` file. Actual values are never displayed.")
+
+    required_vars = [
+        ("GROQ_API_KEY", "Groq AI — content generation"),
+        ("TELEGRAM_BOT_TOKEN", "Telegram — bot token"),
+        ("TELEGRAM_CHAT_ID", "Telegram — channel/chat ID"),
+        ("LINKEDIN_ACCESS_TOKEN", "LinkedIn — OAuth access token"),
+        ("LINKEDIN_PROFILE_ID", "LinkedIn — profile/organization ID"),
+    ]
+
+    all_set = True
+    for var, description in required_vars:
+        value = os.environ.get(var)
+        if value:
+            st.success(f"✅ **{var}** — {description}")
+        else:
+            st.error(f"❌ **{var}** — {description} *(not set)*")
+            all_set = False
+
+    st.write("---")
+    if all_set:
+        st.success("All required environment variables are configured. You're good to go! 🚀")
+    else:
+        st.warning(
+            "Some variables are missing. Open `.env` in your terminal and fill in the missing values:\n\n"
+            "```bash\n"
+            "nano .env\n"
+            "```"
+        )

@@ -165,33 +165,30 @@ python auto_post.py
 
 ### Deploy to server (v2.1 FastAPI)
 
-**Одна команда делает всё** — git pull, проверка venv, рестарт, health-check:
+> **Если видишь `bash: scripts/deploy.sh: No such file or directory`** — сервер на ветке `main`, а скрипты
+> живут в PR-ветке. Используй **Путь A** ниже (переключить ветку — 10 секунд).
+
+---
+
+#### ✅ Путь A — переключить сервер на PR-ветку (скрипты появятся сразу)
 
 ```bash
-# На сервере — сначала перейди в директорию приложения:
 cd ~/publisher_app
-
-# Запускай одну команду:
-bash scripts/deploy.sh
+git fetch origin
+git checkout copilot/fix-posts-calendar-issue   # скрипты появятся немедленно
+bash scripts/deploy.sh --setup-venv             # теперь работает
 ```
 
-`scripts/deploy.sh` выполняет **по очереди**:
-1. `git pull --no-rebase origin main` — подтягивает последний код
-2. Если `backend/venv/bin/uvicorn` отсутствует — автоматически запускает `scripts/setup_venv.sh`
-3. `pip install -r backend/requirements.txt` — обновляет зависимости
-4. `systemctl restart publisher-api` — перезапускает бэкенд
-5. `curl http://localhost:8000/health` — проверяет что API поднялся
-
-**Флаги:**
+После мержа PR в `main` переключись обратно:
 ```bash
-bash scripts/deploy.sh                  # только бэкенд (обычный деплой)
-bash scripts/deploy.sh --setup-venv     # пересоздать venv перед деплоем
-bash scripts/deploy.sh --with-frontend  # бэкенд + пересобрать и перезапустить фронтенд
+git checkout main && git pull --no-rebase origin main
 ```
 
-#### 🆘 Аварийное восстановление — ПОЛНОСТЬЮ РУЧНОЕ (без скриптов)
+---
 
-Если `scripts/deploy.sh` не существует (сервер на ветке `main` до мержа PR) — выполни **по очереди**:
+#### ✅ Путь B — без переключения ветки (полностью ручной)
+
+Если нельзя менять ветку, выполни **по очереди**:
 
 ```bash
 cd ~/publisher_app
@@ -199,7 +196,7 @@ cd ~/publisher_app
 # 1. Подтянуть код
 git pull --no-rebase origin main
 
-# 2. Создать venv и поставить зависимости (занимает ~2 мин)
+# 2. Создать venv и поставить зависимости (~2 мин)
 python3 -m venv backend/venv
 backend/venv/bin/pip install --upgrade pip
 backend/venv/bin/pip install -r backend/requirements.txt
@@ -211,15 +208,46 @@ systemctl restart publisher-api
 curl -s http://localhost:8000/health
 ```
 
-> ⚠️ **Важно:** команды выполнять **строго по очереди**, каждая ждёт завершения предыдущей.  
-> Нельзя запустить `systemctl restart` пока не создан venv — сервис упадёт с `203/EXEC`.
+> ⚠️ Команды — строго по очереди. `systemctl restart` до создания venv → сервис упадёт с `203/EXEC`.
 
-#### Если скрипты уже есть (после мержа PR)
+---
+
+#### После мержа PR — стандартный деплой
 
 ```bash
 cd ~/publisher_app
-bash scripts/deploy.sh --setup-venv
+bash scripts/deploy.sh                  # бэкенд (обычный деплой)
+bash scripts/deploy.sh --setup-venv     # пересоздать venv
+bash scripts/deploy.sh --with-frontend  # бэкенд + пересборка фронтенда
 ```
+
+`scripts/deploy.sh` делает автоматически: git pull → проверка venv → pip install → systemctl restart → health check.
+
+---
+
+#### 🔍 Диагностика — почему упал publisher-api
+
+```bash
+# 1. Статус сервиса
+systemctl status publisher-api --no-pager -l | head -20
+
+# 2. Последние логи
+journalctl -u publisher-api -n 50 --no-pager
+
+# 3. Health check
+curl -s http://localhost:8000/health
+
+# 4. Проверка диска (переполнение диска молча убивает uvicorn!)
+df -h && du -sh /var/log/journal/
+```
+
+Частые причины падения сервиса:
+| Симптом | Причина | Фикс |
+|---------|---------|------|
+| `203/EXEC` в статусе | venv не существует или uvicorn не установлен | Пересоздать venv (Путь A или B выше) |
+| Сервис active но API не отвечает | uvicorn event loop умер | `systemctl restart publisher-api` |
+| Диск заполнен (df показывает 100%) | journald логи переполнили диск | `journalctl --vacuum-size=50M && systemctl restart publisher-api` |
+| Запросы зависают | nginx timeout < времени AI-генерации | Проверить `proxy_read_timeout 120s` в nginx конфиге |
 
 #### Фронтенд (если нужно пересобрать)
 

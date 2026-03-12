@@ -1,5 +1,6 @@
 import logging
 import sqlite3
+from datetime import datetime, timezone
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify
 
@@ -37,7 +38,7 @@ def create_post():
         platform = data.get('platform')
         content = data.get('content')
         status = data.get('status')
-        timestamp = data.get('timestamp')
+        timestamp = data.get('timestamp') or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
 
         conn = sqlite3.connect(DATABASE)
         c = conn.cursor()

@@ -1,20 +1,60 @@
+import logging
 import os
-from groq import Groq
-from telegram_poster import TelegramPoster
-from linkedin_poster import LinkedinPoster
+from datetime import datetime, timezone
+
+import requests
 from dotenv import load_dotenv
+from groq import Groq
+
+from linkedin_poster import LinkedinPoster
+from telegram_poster import TelegramPoster
 
 load_dotenv()
 
+logger = logging.getLogger(__name__)
+
+FLASK_API_URL = os.environ.get("FLASK_API_URL", "http://127.0.0.1:5000")
+REQUEST_TIMEOUT = 10
+
+
 def generate_post(topic):
     groq = Groq(api_key=os.environ.get("GROQ_API_KEY"))
-    prompt = f"Создай пост для социальных сетей на тему: {topic}. Пост должен быть информативным, engaging и не длиннее 200 символов."
+    prompt = (
+        f"Создай пост для социальных сетей на тему: {topic}. "
+        "Пост должен быть информативным, engaging и не длиннее 200 символов."
+    )
     response = groq.chat.completions.create(
         model="llama3-8b-8192",
         messages=[{"role": "user", "content": prompt}],
-        max_tokens=200
+        max_tokens=200,
     )
     return response.choices[0].message.content.strip()
+
+
+def record_post(platform, content, status):
+    """Save a post record to the Flask API so it appears in the calendar."""
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
+    try:
+        response = requests.post(
+            f"{FLASK_API_URL}/post",
+            json={
+                "platform": platform,
+                "content": content,
+                "status": status,
+                "timestamp": timestamp,
+            },
+            timeout=REQUEST_TIMEOUT,
+        )
+        if response.status_code == 201:
+            logger.info("Recorded %s post (%s) to database", platform, status)
+        else:
+            logger.warning(
+                "Unexpected response recording %s post: %s %s",
+                platform, response.status_code, response.text,
+            )
+    except requests.exceptions.RequestException as e:
+        logger.error("Failed to record post to database: %s", e)
+
 
 def main():
     topic = "Искусственный интеллект в бизнесе"  # Можно сделать параметром или случайным
@@ -24,11 +64,14 @@ def main():
     tg_poster = TelegramPoster()
     tg_result = tg_poster.post_text(post_content)
     print("Telegram post result:", tg_result)
+    record_post("Telegram", post_content, tg_result.get("status", "error"))
 
     # Постинг в LinkedIn
     li_poster = LinkedinPoster()
     li_result = li_poster.post_text(post_content)
     print("LinkedIn post result:", li_result)
+    record_post("LinkedIn", post_content, li_result.get("status", "error"))
+
 
 if __name__ == "__main__":
     main()

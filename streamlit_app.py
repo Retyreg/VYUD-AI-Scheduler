@@ -3,7 +3,7 @@ import os
 import streamlit as st
 import requests
 from collections import defaultdict
-from datetime import datetime, date
+from datetime import datetime, date, time
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -27,9 +27,12 @@ if menu == "Create Post":
     platform = st.selectbox("Platform", ["Telegram", "LinkedIn"])
     content = st.text_area("Content", "Write your post here...")
     status = st.selectbox("Status", ["success", "failed"])
-    timestamp = st.text_input("Timestamp (e.g., 2026-02-03)")
+    post_date = st.date_input("Date", value=date.today())
+    post_time = st.time_input("Time", value=datetime.now().time().replace(second=0, microsecond=0))
 
     if st.button("Create Post"):
+        # Combine date and time into a full ISO 8601 timestamp
+        combined_dt = datetime.combine(post_date, post_time)
         # Отправка данных через API к Flask
         response = requests.post(
             f"{BASE_URL}/post",
@@ -37,7 +40,7 @@ if menu == "Create Post":
                 "platform": platform,
                 "content": content,
                 "status": status,
-                "timestamp": timestamp,
+                "timestamp": combined_dt.strftime("%Y-%m-%dT%H:%M:%S"),
             },
             timeout=REQUEST_TIMEOUT,
         )

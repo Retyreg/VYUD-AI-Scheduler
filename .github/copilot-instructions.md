@@ -48,7 +48,7 @@
 
 ### Backend
 - **FastAPI** (Python)
-- ORM: прямые вызовы **Supabase SDK**
+- DB: прямые HTTP-запросы к **Supabase REST API** (SDK НЕ используется — несовместим с Python 3.10 asyncio/websockets)
 - Планировщик: **APScheduler** — автопостинг по расписанию
 - Деплой: systemd сервис `publisher-api` (порт **8000**)
 
@@ -66,10 +66,13 @@
 ### Интеграции постинга
 - **Telegram Bot API** — постинг в каналы через bot token + channel ID
 - **LinkedIn API** — автопостинг через OAuth + access token
+- **VK API** — автопостинг через VK токен (задеплоен)
 
 ### База данных
 - **Supabase (PostgreSQL)**
-- Таблицы: `posts`, `accounts`, `prompts` (планируется), `analytics` (планируется)
+- Таблицы: `posts`, `accounts`, `prompts`, `analytics`
+- Auth: JWT + Row Level Security (RLS)
+- **Важно:** для роутеров `accounts` и `settings` использовать **service role key** (не anon key) — иначе RLS блокирует запросы
 
 ### Инфраструктура
 - Сервер: Ubuntu VPS (`$PUBLISHER_VPS_IP`)
@@ -78,6 +81,8 @@
 - API: внутренний на порту 8000 (проксируется через nginx `/api/`)
 - Секреты: `/root/publisher_app/backend/.env`
 - Репозиторий: https://github.com/Retyreg/VYUD-AI-Scheduler
+- Мониторинг: **UptimeRobot** (uptime alerts)
+- Watchdog: systemd `publisher-watchdog.timer` (авто-рестарт при падении event loop)
 
 ---
 
@@ -91,12 +96,15 @@
 │   ├── venv/                # Python виртуальное окружение
 │   ├── routers/
 │   │   ├── posts.py         # CRUD постов + расписание
-│   │   ├── accounts.py      # Управление аккаунтами (TG, LinkedIn)
-│   │   └── ai.py            # AI генерация (мультипровайдер)
+│   │   ├── accounts.py      # Управление аккаунтами (TG, LinkedIn, VK)
+│   │   ├── ai.py            # AI генерация (мультипровайдер)
+│   │   ├── prompts.py       # Управление шаблонами промптов
+│   │   └── analytics.py     # Аналитика постов (TGStat, LinkedIn, VK)
 │   └── services/
 │       ├── scheduler.py     # APScheduler — автопостинг
 │       ├── telegram.py      # Telegram Bot API интеграция
 │       ├── linkedin.py      # LinkedIn API интеграция
+│       ├── vk.py            # VK API интеграция
 │       └── ai.py            # Универсальный AI-клиент (11 моделей)
 ├── frontend~/
 │   ├── src/
@@ -123,9 +131,15 @@
 | GET | `/api/accounts/` | Список аккаунтов |
 | POST | `/api/accounts/telegram` | Подключить Telegram |
 | POST | `/api/accounts/linkedin` | Подключить LinkedIn |
+| POST | `/api/accounts/vk` | Подключить VK |
 | GET | `/api/ai/models` | Список доступных LLM |
 | POST | `/api/ai/generate-post` | Сгенерировать пост |
 | POST | `/api/ai/content-plan` | Сгенерировать контент-план |
+| GET | `/api/prompts/` | Список шаблонов промптов |
+| POST | `/api/prompts/` | Создать шаблон |
+| PATCH | `/api/prompts/{id}` | Обновить шаблон |
+| DELETE | `/api/prompts/{id}` | Удалить шаблон |
+| GET | `/api/analytics/` | Аналитика постов |
 | GET | `/health` | Healthcheck |
 
 ---
@@ -168,6 +182,109 @@ except Exception as e:
 - Конфигурация на уровне модуля: `logger = logging.getLogger(__name__)`
 - Формат: `'%(asctime)s - %(levelname)s - %(message)s'`
 - Логируй все API-взаимодействия (успешные и неудачные)
+
+---
+
+## КРИТИЧЕСКИЕ УРОКИ (HARD-LEARNED LESSONS)
+
+> Эти правила нарушать нельзя — каждое из них стоило времени и нервов в продакшне.
+
+### 1. Supabase SDK — не использовать в текущей конфигурации ⚠️
+На Python 3.10 с текущей конфигурацией сервера (uvicorn + APScheduler) Supabase Python SDK вызывает конфликты asyncio/websockets. Все обращения к базе — через прямые HTTP-запросы к Supabase REST API:
+```python
+# ✅ Правильно — прямой HTTP-запрос
+import httpx
+response = await httpx.AsyncClient().get(
+    f"{SUPABASE_URL}/rest/v1/posts",
+    headers={"apikey": SUPABASE_KEY, "Authorization": f"Bearer {SUPABASE_KEY}"}
+)
+
+# ⚠️ Осторожно — SDK несовместим с текущей конфигурацией Python 3.10
+# Не менять без тестирования совместимости
+from supabase import create_client
+```
+
+### 2. Service Role Key для accounts/settings
+Роутеры `accounts` и `settings` должны использовать **service role key** (не anon key) — иначе RLS в Supabase заблокирует запросы при чтении publisher accounts.
+
+### 3. Auth token в localStorage
+Frontend хранит JWT-токен под ключом `'access_token'` (не `'supabase_session'` и не `'sb-token'`):
+```javascript
+// ✅ Правильно
+const token = localStorage.getItem('access_token');
+
+// ❌ Неправильно
+const token = localStorage.getItem('supabase_session');
+```
+
+### 4. API prefix — не дублировать
+Префикс роутера задаётся ОДИН РАЗ — либо в самом роутере, либо при регистрации в `main.py`. Иначе эндпоинты дублируются и возникают 404:
+```python
+# ✅ Правильно — префикс только в main.py
+app.include_router(posts_router, prefix="/api/posts")
+
+# ❌ Неправильно — двойной префикс
+router = APIRouter(prefix="/api/posts")
+app.include_router(router, prefix="/api/posts")  # → /api/posts/api/posts
+```
+
+### 5. nginx proxy_read_timeout для AI
+AI-генерация может занимать 30–60 секунд. Без явного таймаута nginx возвращает 504 Gateway Timeout:
+```nginx
+location /api/ {
+    proxy_pass http://127.0.0.1:8000;
+    proxy_read_timeout 120s;  # ← обязательно для AI endpoints
+    proxy_connect_timeout 10s;
+}
+```
+
+### 6. Journald — лимит логов 100 МБ
+Переполнение диска (/var/log/journal) молча ломает uvicorn. Лимит должен быть выставлен:
+```bash
+# /etc/systemd/journald.conf
+SystemMaxUse=100M
+```
+
+### 7. Uvicorn — event loop может умереть
+Процесс uvicorn может быть alive, но event loop мёртв (запросы не обрабатываются). Решение — systemd watchdog с активными health checks:
+```
+# publisher-watchdog.timer проверяет /health каждые 30 секунд
+# при неудаче делает systemctl restart publisher-api
+```
+
+### 8. Деплой статики перед build
+При обновлении статических файлов (favicon и др.) порядок строгий:
+1. Скопировать статику в `static/`
+2. `npm run build` (включает статику в бандл)
+3. `systemctl restart publisher-frontend`
+
+### 9. Передача бинарных файлов через SSH
+```bash
+# base64 -w0 для однострочного вывода (обязательно)
+base64 -w0 file.png | ssh root@$SERVER 'base64 -d > /path/to/file.png'
+```
+
+---
+
+## ДИАГНОСТИКА / DEBUGGING WORKFLOW
+
+Системный порядок дебага:
+```
+1. systemctl status publisher-api publisher-frontend
+2. curl -s http://localhost:8000/health
+3. journalctl -u publisher-api -n 100 --no-pager
+4. Проверить консоль браузера (frontend ошибки)
+5. curl конкретный эндпоинт напрямую
+```
+
+---
+
+## ИЗВЕСТНЫЕ БАГИ (OPEN ISSUES)
+
+| Баг | Описание | Статус |
+|-----|----------|--------|
+| Scheduled Posts панель | Посты со статусом `published` фильтруются из панели "Запланированные", хотя остаются на календаре. Фикс через future-date logic предложен, но не подтверждён. | 🔴 Открыт |
+| Content Plan → Posts | Создание черновиков постов из AI-контент-плана (bulk draft creation) реализовано, но не подтверждено работающим | 🟡 Не подтверждено |
 
 ---
 
@@ -222,6 +339,11 @@ curl -s http://$PUBLISHER_VPS_IP:8000/api/ai/models
 curl -s http://$PUBLISHER_VPS_IP:8000/health
 ```
 
+### Проверка диска (важно — переполнение диска ломает uvicorn)
+```bash
+ssh root@$PUBLISHER_VPS_IP 'df -h && du -sh /var/log/journal/'
+```
+
 ---
 
 ## ТЕКУЩИЙ ФУНКЦИОНАЛ (v2.1)
@@ -232,11 +354,16 @@ curl -s http://$PUBLISHER_VPS_IP:8000/health
 | Создание постов с превью | ✅ Работает |
 | Telegram автопостинг | ✅ Работает |
 | LinkedIn автопостинг | ✅ Работает |
+| VK автопостинг | ✅ Работает |
 | AI генерация постов (11 LLM) | ✅ Работает |
 | AI контент-план | ✅ Работает |
+| Создание постов из контент-плана | 🟡 Реализовано, не подтверждено |
 | UTM-метки | ✅ Работает |
 | SSL (HTTPS) | ✅ Работает |
 | Управление аккаунтами | ✅ Работает |
+| Аутентификация (JWT + RLS) | ✅ Работает |
+| Редактор промптов | ✅ Работает |
+| Аналитика постов (TGStat) | ✅ Работает |
 
 ---
 
@@ -244,11 +371,11 @@ curl -s http://$PUBLISHER_VPS_IP:8000/health
 
 | Фича | Приоритет | Описание |
 |------|-----------|----------|
-| Редактор промптов | Высокий | Таблица `prompts` + UI для управления шаблонами |
-| VK интеграция | Средний | Автопостинг в VK через API |
+| Фикс Scheduled Posts панели | Высокий | Посты со статусом `published` показывать в панели до фактической публикации |
+| Создание постов из контент-плана | Высокий | Bulk draft creation — чистая переработка с нуля |
 | Instagram интеграция | Средний | Автопостинг через Graph API |
-| Аналитика постов | Средний | Просмотры, клики, UTM-статистика |
 | Генерация изображений | Средний | DALL-E 3 / Flux / SDXL через Replicate |
+| Мониторинг моделей | Низкий | Следить за актуальностью имён моделей Groq, HuggingFace, Gemini, Anthropic |
 | Монетизация Publisher | Низкий | Как отдельный SaaS-продукт |
 | Фикс двойной навигации | Низкий | UI баг на некоторых страницах |
 
@@ -301,9 +428,12 @@ GROQ_API_KEY
 HUGGINGFACE_API_KEY
 REPLICATE_API_TOKEN
 SUPABASE_URL
-SUPABASE_KEY
+SUPABASE_KEY           - anon key (для большинства запросов)
+SUPABASE_SERVICE_KEY   - service role key (для accounts/settings — обход RLS)
 TELEGRAM_BOT_TOKEN
 LINKEDIN_ACCESS_TOKEN
+VK_ACCESS_TOKEN
+TGSTAT_API_KEY         - для аналитики Telegram (платный)
 ```
 
 > ⚠️ Никогда не коммить секреты. Файл `.env` всегда в `.gitignore`.

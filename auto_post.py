@@ -31,8 +31,11 @@ def generate_post(topic):
     return response.choices[0].message.content.strip()
 
 
-def record_post(platform, content, status):
-    """Save a post record to the Flask API so it appears in the calendar."""
+def schedule_post(platform, content):
+    """
+    Save a post to the DB with status='scheduled' BEFORE publishing.
+    Returns the new post ID, or None on failure.
+    """
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
     try:
         response = requests.post(
@@ -40,37 +43,63 @@ def record_post(platform, content, status):
             json={
                 "platform": platform,
                 "content": content,
-                "status": status,
+                "status": "scheduled",
                 "timestamp": timestamp,
             },
             timeout=REQUEST_TIMEOUT,
         )
         if response.status_code == 201:
-            logger.info("Recorded %s post (%s) to database", platform, status)
+            post_id = response.json().get("id")
+            logger.info("Scheduled %s post id=%s in database", platform, post_id)
+            return post_id
+        logger.warning(
+            "Unexpected response scheduling %s post: %s %s",
+            platform, response.status_code, response.text,
+        )
+    except requests.exceptions.RequestException as e:
+        logger.error("Failed to schedule post in database: %s", e)
+    return None
+
+
+def update_post_status(post_id, status):
+    """
+    Update the status of an existing post after it has been published.
+    Transitions: scheduled → success | error
+    """
+    if post_id is None:
+        return
+    try:
+        response = requests.patch(
+            f"{FLASK_API_URL}/api/posts/{post_id}",
+            json={"status": status},
+            timeout=REQUEST_TIMEOUT,
+        )
+        if response.status_code == 200:
+            logger.info("Updated post id=%s status to '%s'", post_id, status)
         else:
             logger.warning(
-                "Unexpected response recording %s post: %s %s",
-                platform, response.status_code, response.text,
+                "Unexpected response updating post %s: %s %s",
+                post_id, response.status_code, response.text,
             )
     except requests.exceptions.RequestException as e:
-        logger.error("Failed to record post to database: %s", e)
+        logger.error("Failed to update post %s status: %s", post_id, e)
 
 
 def main():
     topic = "Искусственный интеллект в бизнесе"  # Можно сделать параметром или случайным
     post_content = generate_post(topic)
 
-    # Постинг в Telegram
-    tg_poster = TelegramPoster()
-    tg_result = tg_poster.post_text(post_content)
+    # Постинг в Telegram: сначала сохраняем как scheduled, потом публикуем
+    tg_id = schedule_post("Telegram", post_content)
+    tg_result = TelegramPoster().post_text(post_content)
     print("Telegram post result:", tg_result)
-    record_post("Telegram", post_content, tg_result.get("status", "error"))
+    update_post_status(tg_id, tg_result.get("status", "error"))
 
-    # Постинг в LinkedIn
-    li_poster = LinkedinPoster()
-    li_result = li_poster.post_text(post_content)
+    # Постинг в LinkedIn: сначала сохраняем как scheduled, потом публикуем
+    li_id = schedule_post("LinkedIn", post_content)
+    li_result = LinkedinPoster().post_text(post_content)
     print("LinkedIn post result:", li_result)
-    record_post("LinkedIn", post_content, li_result.get("status", "error"))
+    update_post_status(li_id, li_result.get("status", "error"))
 
 
 if __name__ == "__main__":

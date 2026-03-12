@@ -158,43 +158,69 @@ python auto_post.py
 
 | # | File | Problem | Fix |
 |---|------|---------|-----|
-| 1 | `auto_post.py` | Published posts were **never saved to the database** — so they were invisible to any calendar | Added `record_post()` that calls `POST /api/posts/` with a UTC timestamp after every Telegram/LinkedIn publish |
-| 2 | `app.py` | `timestamp` stored as `NULL` when caller omitted the field — the calendar date-parser silently skipped those rows | Auto-fill with `datetime.now(UTC)` when field is absent |
-| 3 | `app.py` | Only `/post` and `/post/history` existed — publisher.vyud.tech needs `/api/posts/` with status/platform filtering and PATCH/DELETE | Added full REST `/api/posts/` endpoints matching the documented spec |
-| 4 | `streamlit_app.py` | Free-text timestamp input could be blank or malformed, silently breaking the calendar | Replaced with `st.date_input` + `st.time_input`; calendar counter now shows **Всего / Запланировано** |
+| 1 | `auto_post.py` | Published posts were **never saved to the database** — invisible in any calendar | Implement `scheduled → success/error` lifecycle: save post as `scheduled` before publishing, PATCH to `success`/`error` after |
+| 2 | `app.py` | `timestamp` stored as `NULL` when caller omitted the field — calendar silently skipped those rows | Auto-fill with `datetime.now(UTC)` when field is absent |
+| 3 | `app.py` | Only `/post` and `/post/history` existed — publisher.vyud.tech needs `/api/posts/` with status/platform filtering and PATCH/DELETE | Added full REST `/api/posts/` endpoints; added PostgreSQL support via `DATABASE_URL` env var |
+| 4 | `streamlit_app.py` | Free-text timestamp input could be blank or malformed | Replaced with `st.date_input` + `st.time_input`; calendar header shows **Всего / Запланировано** counter |
 
-### Next steps after merging this PR
+### Deploy to server
 
-1. **Deploy the updated `app.py` to your server.**
-   After merging, `ssh` into the server and restart the Flask process so the new `/api/posts/` endpoints are live.
+```bash
+# On the server — one command does everything:
+bash scripts/deploy.sh
+```
 
-2. **Verify publisher.vyud.tech calls the correct endpoints.**
-   Check the publisher.vyud.tech frontend/config and confirm it points at `POST /api/posts/` (not the old `/post`).
-   If it's using a different base URL, set `FLASK_API_URL` in the server `.env`.
+`scripts/deploy.sh` will:
+1. `git pull` the latest code from `main`
+2. `pip install -r requirements.txt`
+3. Run `scripts/fix_null_timestamps.py` to repair any NULL-timestamp rows
+4. Restart the Flask systemd service (`vyud-flask`)
 
-3. **Check existing 50 posts for NULL timestamps.**
-   Some older posts in `posts.db` may have `NULL` or empty timestamps and will never appear in the calendar.
-   Run this once on the server to inspect (run from bash/zsh — if using the SQLite prompt directly, omit the outer quotes):
-   ```bash
-   sqlite3 posts.db "SELECT id, platform, status, timestamp FROM post_history WHERE timestamp IS NULL OR timestamp = '';"
-   ```
-   Update them if needed:
-   ```bash
-   sqlite3 posts.db "UPDATE post_history SET timestamp = '2026-03-01T00:00:00' WHERE timestamp IS NULL OR timestamp = '';"
-   ```
+If your systemd unit has a different name, override it:
+```bash
+FLASK_SERVICE_NAME=my-flask-service bash scripts/deploy.sh
+```
 
-4. **Confirm the "Запланировано" counter.**
-   Posts created via publisher.vyud.tech should be saved with `status = "scheduled"`.
-   The counter `GET /api/posts/?status=scheduled` will return those, making the count correct.
-   When a post is published, update its status: `PATCH /api/posts/{id}` → `{"status": "success"}`.
+### Fix NULL timestamps in existing posts
 
-5. **Consider migrating to Supabase (PostgreSQL)** as described in the Architecture section.
-   SQLite works for single-server setups but does not support concurrent writers.
-   When ready, replace the `sqlite3` calls in `app.py` with a `psycopg2` / Supabase client.
+```bash
+# Run once after deploying — safe to run multiple times (idempotent)
+python scripts/fix_null_timestamps.py
+
+# Or point at a specific DB path:
+python scripts/fix_null_timestamps.py /var/data/posts.db
+```
+
+Posts that had no timestamp are set to `1970-01-01T00:00:00` so they appear
+in the calendar rather than disappearing silently.  
+Update them to the correct date via the Streamlit UI or:
+
+```bash
+curl -X PATCH http://localhost:5000/api/posts/{id} \
+  -H "Content-Type: application/json" \
+  -d '{"timestamp": "2026-03-01T10:00:00"}'
+```
+
+### Migrate to Supabase (PostgreSQL)
+
+`app.py` now supports PostgreSQL transparently — just set `DATABASE_URL` in `.env`:
+
+```bash
+# .env
+DATABASE_URL=postgresql://postgres:your-password@db.xxxx.supabase.co:5432/postgres
+```
+
+Steps:
+1. Create a Supabase project at [supabase.com](https://supabase.com)
+2. Copy the **Connection string** from Settings → Database → Connection string → URI
+3. Paste it as `DATABASE_URL` in your server `.env`
+4. Restart Flask — `init_db()` will create the `post_history` table automatically
+
+No code changes needed. SQLite remains the default when `DATABASE_URL` is not set.
 
 ---
 
-
+## 🛣️ Roadmap
 
 ### v2.3 (Q2 2026)
 - [ ] Instagram integration via Graph API

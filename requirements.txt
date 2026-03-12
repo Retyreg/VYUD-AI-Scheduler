@@ -1,5 +1,6 @@
 flask
 groq
+psycopg2-binary
 python-dotenv
 requests
 streamlit

@@ -46,8 +46,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-from routers import accounts, ai, analytics, posts, prompts  # noqa: E402
+from routers import accounts, ai, analytics, auth, posts, prompts  # noqa: E402 — env must be loaded first via load_dotenv() above
 
+app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 app.include_router(posts.router, prefix="/api/posts", tags=["posts"])
 app.include_router(accounts.router, prefix="/api/accounts", tags=["accounts"])
 app.include_router(ai.router, prefix="/api/ai", tags=["ai"])

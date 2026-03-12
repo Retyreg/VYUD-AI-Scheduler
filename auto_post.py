@@ -36,7 +36,7 @@ def record_post(platform, content, status):
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
     try:
         response = requests.post(
-            f"{FLASK_API_URL}/post",
+            f"{FLASK_API_URL}/api/posts/",
             json={
                 "platform": platform,
                 "content": content,

@@ -1,4 +1,5 @@
 import calendar
+import logging
 import os
 import streamlit as st
 import requests
@@ -7,6 +8,8 @@ from datetime import datetime, date, time
 from dotenv import load_dotenv
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 MAX_PREVIEW_LENGTH = 100
 REQUEST_TIMEOUT = 10
@@ -35,7 +38,7 @@ if menu == "Create Post":
         combined_dt = datetime.combine(post_date, post_time)
         # Отправка данных через API к Flask
         response = requests.post(
-            f"{BASE_URL}/post",
+            f"{BASE_URL}/api/posts/",
             json={
                 "platform": platform,
                 "content": content,
@@ -53,15 +56,15 @@ elif menu == "View History":
     st.header("Post History")
 
     # Получение истории через API
-    response = requests.get(f"{BASE_URL}/post/history", timeout=REQUEST_TIMEOUT)
+    response = requests.get(f"{BASE_URL}/api/posts/", timeout=REQUEST_TIMEOUT)
     if response.status_code == 200:
         history = response.json()
         if history:
             for entry in history:
-                st.write(f"**Platform**: {entry[1]}")
-                st.write(f"**Content**: {entry[2]}")
-                st.write(f"**Status**: {entry[3]}")
-                st.write(f"**Timestamp**: {entry[4]}")
+                st.write(f"**Platform**: {entry['platform']}")
+                st.write(f"**Content**: {entry['content']}")
+                st.write(f"**Status**: {entry['status']}")
+                st.write(f"**Timestamp**: {entry['timestamp']}")
                 st.write("---")
         else:
             st.info("No posts in history.")
@@ -72,20 +75,25 @@ elif menu == "Calendar":
     st.header("Posts Calendar 📅")
 
     # Получение истории через API
-    response = requests.get(f"{BASE_URL}/post/history", timeout=REQUEST_TIMEOUT)
+    response = requests.get(f"{BASE_URL}/api/posts/", timeout=REQUEST_TIMEOUT)
     if response.status_code == 200:
         history = response.json()
         if history:
+            # Summary counters
+            total = len(history)
+            scheduled = sum(1 for p in history if p['status'] == 'scheduled')
+            st.caption(f"Всего: {total} | Запланировано: {scheduled}")
+
             # Группировка постов по датам
             posts_by_date = defaultdict(list)
             for entry in history:
-                _id, platform, content, status, raw_ts = entry
+                raw_ts = entry['timestamp']
                 try:
                     # ISO 8601 date: take the date portion before any 'T' separator
                     post_date = datetime.strptime(raw_ts.split("T")[0], "%Y-%m-%d").date()
                     posts_by_date[post_date].append(entry)
                 except (ValueError, TypeError, AttributeError):
-                    pass
+                    logger.warning("Failed to parse timestamp for post %s: %r", entry.get('id'), raw_ts)
 
             if posts_by_date:
                 all_dates = sorted(posts_by_date.keys())
@@ -125,9 +133,8 @@ elif menu == "Calendar":
                                 count = len(day_posts)
                                 with week_cols[i].expander(f"**{day}** 📌 {count}"):
                                     for post in day_posts:
-                                        _id, platform, content, status, raw_ts = post
-                                        st.write(f"**{platform}** — {status}")
-                                        preview = content[:MAX_PREVIEW_LENGTH] + ("..." if len(content) > MAX_PREVIEW_LENGTH else "")
+                                        st.write(f"**{post['platform']}** — {post['status']}")
+                                        preview = post['content'][:MAX_PREVIEW_LENGTH] + ("..." if len(post['content']) > MAX_PREVIEW_LENGTH else "")
                                         st.write(preview)
                                         st.write("---")
                             else:

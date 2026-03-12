@@ -127,10 +127,13 @@ python auto_post.py
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/api/posts/` | List scheduled posts |
-| `POST` | `/api/posts/` | Create new post |
-| `PATCH` | `/api/posts/{id}` | Update post |
+| `GET` | `/api/posts/` | List posts; filter with `?status=scheduled` or `?platform=Telegram` |
+| `POST` | `/api/posts/` | Create new post (`status` defaults to `"scheduled"`) |
+| `PATCH` | `/api/posts/{id}` | Update post fields (status, content, timestamp) |
 | `DELETE` | `/api/posts/{id}` | Delete post |
+
+> **Legacy endpoints** (kept for backward compatibility):
+> `POST /post` and `GET /post/history` still work but return tuple arrays instead of objects.
 
 ### AI Generation
 
@@ -149,7 +152,49 @@ python auto_post.py
 | `PATCH` | `/api/prompts/{id}` | Update template |
 | `DELETE` | `/api/prompts/{id}` | Delete template |
 
-## 🛣️ Roadmap
+## ✅ Recent Fixes & Next Steps
+
+### What was fixed (PR: copilot/fix-posts-calendar-issue)
+
+| # | File | Problem | Fix |
+|---|------|---------|-----|
+| 1 | `auto_post.py` | Published posts were **never saved to the database** — so they were invisible to any calendar | Added `record_post()` that calls `POST /api/posts/` with a UTC timestamp after every Telegram/LinkedIn publish |
+| 2 | `app.py` | `timestamp` stored as `NULL` when caller omitted the field — the calendar date-parser silently skipped those rows | Auto-fill with `datetime.now(UTC)` when field is absent |
+| 3 | `app.py` | Only `/post` and `/post/history` existed — publisher.vyud.tech needs `/api/posts/` with status/platform filtering and PATCH/DELETE | Added full REST `/api/posts/` endpoints matching the documented spec |
+| 4 | `streamlit_app.py` | Free-text timestamp input could be blank or malformed, silently breaking the calendar | Replaced with `st.date_input` + `st.time_input`; calendar counter now shows **Всего / Запланировано** |
+
+### Next steps after merging this PR
+
+1. **Deploy the updated `app.py` to your server.**
+   After merging, `ssh` into the server and restart the Flask process so the new `/api/posts/` endpoints are live.
+
+2. **Verify publisher.vyud.tech calls the correct endpoints.**
+   Check the publisher.vyud.tech frontend/config and confirm it points at `POST /api/posts/` (not the old `/post`).
+   If it's using a different base URL, set `FLASK_API_URL` in the server `.env`.
+
+3. **Check existing 50 posts for NULL timestamps.**
+   Some older posts in `posts.db` may have `NULL` or empty timestamps and will never appear in the calendar.
+   Run this once on the server to inspect (run from bash/zsh — if using the SQLite prompt directly, omit the outer quotes):
+   ```bash
+   sqlite3 posts.db "SELECT id, platform, status, timestamp FROM post_history WHERE timestamp IS NULL OR timestamp = '';"
+   ```
+   Update them if needed:
+   ```bash
+   sqlite3 posts.db "UPDATE post_history SET timestamp = '2026-03-01T00:00:00' WHERE timestamp IS NULL OR timestamp = '';"
+   ```
+
+4. **Confirm the "Запланировано" counter.**
+   Posts created via publisher.vyud.tech should be saved with `status = "scheduled"`.
+   The counter `GET /api/posts/?status=scheduled` will return those, making the count correct.
+   When a post is published, update its status: `PATCH /api/posts/{id}` → `{"status": "success"}`.
+
+5. **Consider migrating to Supabase (PostgreSQL)** as described in the Architecture section.
+   SQLite works for single-server setups but does not support concurrent writers.
+   When ready, replace the `sqlite3` calls in `app.py` with a `psycopg2` / Supabase client.
+
+---
+
+
 
 ### v2.3 (Q2 2026)
 - [ ] Instagram integration via Graph API

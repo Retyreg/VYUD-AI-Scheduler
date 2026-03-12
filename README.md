@@ -170,6 +170,30 @@ python auto_post.py
 
 ---
 
+#### 🆘 Если попал в merge conflict (CONFLICT modify/delete: .streamlit/secrets.toml)
+
+Сервер завис с незавершённым мержем. Выполни **по очереди**:
+
+```bash
+cd ~/publisher_app
+
+# 1. Прерываем мерж — возвращаем ветку в чистое состояние
+git merge --abort
+
+# 2. Проверяем что всё чисто
+git status   # должно быть "nothing to commit, working tree clean"
+
+# 3. Теперь деплоим (исправленный скрипт тянет с правильной ветки)
+bash scripts/deploy.sh --setup-venv
+```
+
+> ℹ️ **Почему возник конфликт:** старая версия `deploy.sh` всегда тянула `origin main`, даже когда сервер
+> находится на PR-ветке. Это вызывало modify/delete конфликт в `.streamlit/secrets.toml` (файл удалён
+> в PR-ветке, но существует в истории `main`). Исправлено — новый `deploy.sh` определяет текущую ветку
+> автоматически (`CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)`).
+
+---
+
 #### ✅ Путь A — переключить сервер на PR-ветку (скрипты появятся сразу)
 
 ```bash

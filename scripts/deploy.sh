@@ -37,13 +37,15 @@ cd "$REPO_DIR"
 
 # 1. Pull latest code (merge strategy — never rebase on server)
 echo "[1/5] Pulling latest code..."
-git fetch origin main
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+echo "      Current branch: $CURRENT_BRANCH"
+git fetch origin "$CURRENT_BRANCH"
 if ! git diff --quiet || ! git diff --cached --quiet; then
     echo "      WARNING: Uncommitted changes detected in tracked files:"
     git --no-pager diff --stat
     echo "      Proceeding with merge (use 'git stash' first to avoid conflicts)."
 fi
-git pull --no-rebase origin main
+git pull --no-rebase origin "$CURRENT_BRANCH"
 echo "      Done. Current commit: $(git rev-parse --short HEAD)"
 
 # 2. Set up or update backend venv

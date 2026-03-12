@@ -189,20 +189,37 @@ bash scripts/deploy.sh --setup-venv     # пересоздать venv перед
 bash scripts/deploy.sh --with-frontend  # бэкенд + пересобрать и перезапустить фронтенд
 ```
 
-#### 🆘 Аварийное восстановление (если backend/venv/ был удалён)
+#### 🆘 Аварийное восстановление — ПОЛНОСТЬЮ РУЧНОЕ (без скриптов)
 
-Если `git reset --hard` или другое действие уничтожило venv — **три команды по очереди**:
+Если `scripts/deploy.sh` не существует (сервер на ветке `main` до мержа PR) — выполни **по очереди**:
 
 ```bash
 cd ~/publisher_app
-git pull --no-rebase origin main     # 1. подтянуть backend/ код из GitHub
-bash scripts/setup_venv.sh           # 2. создать venv и поставить зависимости
-systemctl restart publisher-api      # 3. запустить сервис
-curl -s http://localhost:8000/health # 4. проверить — должно вернуть {"status":"ok","version":"2.1.0"}
+
+# 1. Подтянуть код
+git pull --no-rebase origin main
+
+# 2. Создать venv и поставить зависимости (занимает ~2 мин)
+python3 -m venv backend/venv
+backend/venv/bin/pip install --upgrade pip
+backend/venv/bin/pip install -r backend/requirements.txt
+
+# 3. Запустить сервис
+systemctl restart publisher-api
+
+# 4. Проверить — должно вернуть {"status":"ok","version":"2.1.0"}
+curl -s http://localhost:8000/health
 ```
 
 > ⚠️ **Важно:** команды выполнять **строго по очереди**, каждая ждёт завершения предыдущей.  
 > Нельзя запустить `systemctl restart` пока не создан venv — сервис упадёт с `203/EXEC`.
+
+#### Если скрипты уже есть (после мержа PR)
+
+```bash
+cd ~/publisher_app
+bash scripts/deploy.sh --setup-venv
+```
 
 #### Фронтенд (если нужно пересобрать)
 

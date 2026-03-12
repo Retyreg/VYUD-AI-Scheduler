@@ -39,7 +39,9 @@ cd "$REPO_DIR"
 echo "[1/5] Pulling latest code..."
 git fetch origin main
 if ! git diff --quiet || ! git diff --cached --quiet; then
-    echo "      WARNING: Uncommitted changes detected — merging anyway."
+    echo "      WARNING: Uncommitted changes detected in tracked files:"
+    git --no-pager diff --stat
+    echo "      Proceeding with merge (use 'git stash' first to avoid conflicts)."
 fi
 git pull --no-rebase origin main
 echo "      Done. Current commit: $(git rev-parse --short HEAD)"

@@ -49,7 +49,7 @@ async def _publish_post(post: Dict[str, Any]) -> None:
         try:
             async with httpx.AsyncClient() as client:
                 resp = await client.get(
-                    f"{SUPABASE_URL}/rest/v1/accounts",
+                    f"{SUPABASE_URL}/rest/v1/publisher_accounts",
                     headers=_service_headers(),
                     params={"id": f"eq.{account_id}"},
                 )

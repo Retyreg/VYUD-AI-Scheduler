@@ -52,7 +52,7 @@ async def list_accounts():
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.get(
-                f"{SUPABASE_URL}/rest/v1/accounts",
+                f"{SUPABASE_URL}/rest/v1/publisher_accounts",
                 headers=_service_headers(),
                 params={"order": "created_at.desc", "select": "id,name,platform,created_at"},
             )
@@ -77,7 +77,7 @@ async def add_telegram_account(account: TelegramAccount):
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.post(
-                f"{SUPABASE_URL}/rest/v1/accounts",
+                f"{SUPABASE_URL}/rest/v1/publisher_accounts",
                 headers=_service_headers(),
                 json=payload,
             )
@@ -103,7 +103,7 @@ async def add_linkedin_account(account: LinkedInAccount):
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.post(
-                f"{SUPABASE_URL}/rest/v1/accounts",
+                f"{SUPABASE_URL}/rest/v1/publisher_accounts",
                 headers=_service_headers(),
                 json=payload,
             )
@@ -129,7 +129,7 @@ async def add_vk_account(account: VKAccount):
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.post(
-                f"{SUPABASE_URL}/rest/v1/accounts",
+                f"{SUPABASE_URL}/rest/v1/publisher_accounts",
                 headers=_service_headers(),
                 json=payload,
             )
@@ -149,7 +149,7 @@ async def delete_account(account_id: str):
     try:
         async with httpx.AsyncClient() as client:
             resp = await client.delete(
-                f"{SUPABASE_URL}/rest/v1/accounts",
+                f"{SUPABASE_URL}/rest/v1/publisher_accounts",
                 headers=_service_headers(),
                 params={"id": f"eq.{account_id}"},
             )

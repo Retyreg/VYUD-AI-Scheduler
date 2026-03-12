@@ -163,23 +163,57 @@ python auto_post.py
 | 3 | `app.py` | Only `/post` and `/post/history` existed — publisher.vyud.tech needs `/api/posts/` with status/platform filtering and PATCH/DELETE | Added full REST `/api/posts/` endpoints; added PostgreSQL support via `DATABASE_URL` env var |
 | 4 | `streamlit_app.py` | Free-text timestamp input could be blank or malformed | Replaced with `st.date_input` + `st.time_input`; calendar header shows **Всего / Запланировано** counter |
 
-### Deploy to server
+### Deploy to server (v2.1 FastAPI)
+
+**Одна команда делает всё** — git pull, проверка venv, рестарт, health-check:
 
 ```bash
-# On the server — one command does everything:
+# На сервере — сначала перейди в директорию приложения:
+cd ~/publisher_app
+
+# Запускай одну команду:
 bash scripts/deploy.sh
 ```
 
-`scripts/deploy.sh` will:
-1. `git pull` the latest code from `main`
-2. `pip install -r requirements.txt`
-3. Run `scripts/fix_null_timestamps.py` to repair any NULL-timestamp rows
-4. Restart the Flask systemd service (`vyud-flask`)
+`scripts/deploy.sh` выполняет **по очереди**:
+1. `git pull --no-rebase origin main` — подтягивает последний код
+2. Если `backend/venv/bin/uvicorn` отсутствует — автоматически запускает `scripts/setup_venv.sh`
+3. `pip install -r backend/requirements.txt` — обновляет зависимости
+4. `systemctl restart publisher-api` — перезапускает бэкенд
+5. `curl http://localhost:8000/health` — проверяет что API поднялся
 
-If your systemd unit has a different name, override it:
+**Флаги:**
 ```bash
-FLASK_SERVICE_NAME=my-flask-service bash scripts/deploy.sh
+bash scripts/deploy.sh                  # только бэкенд (обычный деплой)
+bash scripts/deploy.sh --setup-venv     # пересоздать venv перед деплоем
+bash scripts/deploy.sh --with-frontend  # бэкенд + пересобрать и перезапустить фронтенд
 ```
+
+#### 🆘 Аварийное восстановление (если backend/venv/ был удалён)
+
+Если `git reset --hard` или другое действие уничтожило venv — **три команды по очереди**:
+
+```bash
+cd ~/publisher_app
+git pull --no-rebase origin main     # 1. подтянуть backend/ код из GitHub
+bash scripts/setup_venv.sh           # 2. создать venv и поставить зависимости
+systemctl restart publisher-api      # 3. запустить сервис
+curl -s http://localhost:8000/health # 4. проверить — должно вернуть {"status":"ok","version":"2.1.0"}
+```
+
+> ⚠️ **Важно:** команды выполнять **строго по очереди**, каждая ждёт завершения предыдущей.  
+> Нельзя запустить `systemctl restart` пока не создан venv — сервис упадёт с `203/EXEC`.
+
+#### Фронтенд (если нужно пересобрать)
+
+```bash
+cd ~/publisher_app/frontend~
+npm install          # только первый раз или после обновления package.json
+npm run build        # собрать
+systemctl restart publisher-frontend
+```
+
+> **Примечание:** Фронтенд не нужно пересобирать при каждом деплое — он стабилен пока не меняются `.svelte` файлы.
 
 ### Fix NULL timestamps in existing posts
 

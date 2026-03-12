@@ -165,6 +165,22 @@ python auto_post.py
 
 ### Deploy to server (v2.1 FastAPI)
 
+> ⚠️ **Важно:** все команды ниже выполняются **на VPS-сервере** (`38.180.243.126`), а не на вашем локальном компьютере.
+> На Mac/Windows нет ни `systemctl`, ни `/root/publisher_app`. Подключайтесь через SSH:
+>
+> ```bash
+> # С вашего Mac/Windows — один раз подключиться к серверу:
+> ssh root@38.180.243.126
+> # После этого все команды ниже выполняются уже внутри SSH-сессии
+> ```
+>
+> Либо передавайте команды напрямую без интерактивной сессии:
+>
+> ```bash
+> # Задеплоить одной строкой прямо с Mac (без входа на сервер):
+> ssh root@38.180.243.126 "cd /root/publisher_app && git pull --no-rebase origin copilot/fix-posts-calendar-issue && systemctl restart publisher-api && sleep 2 && curl -s http://localhost:8000/health"
+> ```
+
 > **Если видишь `bash: scripts/deploy.sh: No such file or directory`** — сервер на ветке `main`, а скрипты
 > живут в PR-ветке. Используй **Путь A** ниже (переключить ветку — 10 секунд).
 
@@ -196,7 +212,14 @@ bash scripts/deploy.sh --setup-venv
 
 #### ✅ Путь A — переключить сервер на PR-ветку (скрипты появятся сразу)
 
+**Вариант 1 — одной командой с Mac (не заходя на сервер):**
 ```bash
+ssh root@38.180.243.126 "cd /root/publisher_app && git fetch origin && git checkout copilot/fix-posts-calendar-issue && bash scripts/deploy.sh --setup-venv"
+```
+
+**Вариант 2 — зайти на сервер и выполнять вручную:**
+```bash
+# Сначала: ssh root@38.180.243.126
 cd ~/publisher_app
 git fetch origin
 git checkout copilot/fix-posts-calendar-issue   # скрипты появятся немедленно
@@ -212,13 +235,20 @@ git checkout main && git pull --no-rebase origin main
 
 #### ✅ Путь B — без переключения ветки (полностью ручной)
 
-Если нельзя менять ветку, выполни **по очереди**:
+Если нельзя менять ветку, выполни **по очереди** (все команды — на сервере через SSH):
 
+**Вариант 1 — одной командой с Mac:**
 ```bash
+ssh root@38.180.243.126 "cd /root/publisher_app && git pull --no-rebase origin copilot/fix-posts-calendar-issue && python3 -m venv backend/venv && backend/venv/bin/pip install -r backend/requirements.txt && systemctl restart publisher-api && sleep 2 && curl -s http://localhost:8000/health"
+```
+
+**Вариант 2 — зайти на сервер и выполнять вручную:**
+```bash
+# Сначала: ssh root@38.180.243.126
 cd ~/publisher_app
 
 # 1. Подтянуть код
-git pull --no-rebase origin main
+git pull --no-rebase origin copilot/fix-posts-calendar-issue
 
 # 2. Создать venv и поставить зависимости (~2 мин)
 python3 -m venv backend/venv

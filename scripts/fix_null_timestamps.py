@@ -19,7 +19,6 @@ endpoint to set the correct date.
 
 import sqlite3
 import sys
-from datetime import datetime, timezone
 
 SENTINEL_TS = "1970-01-01T00:00:00"
 

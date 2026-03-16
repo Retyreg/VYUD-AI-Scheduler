@@ -1,4 +1,5 @@
-groq
+Flask
+google-genai
 python-dotenv
 requests
 streamlit

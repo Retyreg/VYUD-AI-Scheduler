@@ -26,18 +26,18 @@ AVAILABLE_MODELS: List[Dict[str, Any]] = [
     {"id": "gpt-4o", "name": "GPT-4o", "provider": "openai", "description": "Best quality"},
     {"id": "gpt-4o-mini", "name": "GPT-4o Mini", "provider": "openai", "description": "Fast & cheap"},
     # Anthropic
-    {"id": "claude-3-5-sonnet-20241022", "name": "Claude 3.5 Sonnet", "provider": "anthropic", "description": "High quality"},
-    {"id": "claude-3-haiku-20240307", "name": "Claude 3 Haiku", "provider": "anthropic", "description": "Fast"},
+    {"id": "claude-sonnet-4-5", "name": "Claude Sonnet 4.5", "provider": "anthropic", "description": "High quality"},
+    {"id": "claude-3-5-haiku-20241022", "name": "Claude 3.5 Haiku", "provider": "anthropic", "description": "Fast"},
     # Google AI
-    {"id": "gemini-1.5-pro", "name": "Gemini 1.5 Pro", "provider": "google", "description": "Google flagship"},
-    {"id": "gemini-1.5-flash", "name": "Gemini 1.5 Flash", "provider": "google", "description": "Fast Google"},
+    {"id": "gemini-2.0-flash", "name": "Gemini 2.0 Flash", "provider": "google", "description": "Google flagship"},
+    {"id": "gemini-2.5-flash", "name": "Gemini 2.5 Flash", "provider": "google", "description": "Fast Google"},
     # Groq
-    {"id": "llama-3.1-70b-versatile", "name": "Llama 3.1 70B", "provider": "groq", "description": "Fast open-source"},
+    {"id": "llama-3.3-70b-versatile", "name": "Llama 3.3 70B", "provider": "groq", "description": "Fast open-source"},
     {"id": "llama-3.1-8b-instant", "name": "Llama 3.1 8B", "provider": "groq", "description": "Fastest"},
-    {"id": "mixtral-8x7b-32768", "name": "Mixtral 8x7B", "provider": "groq", "description": "MoE model"},
+    {"id": "gemma2-9b-it", "name": "Gemma 2 9B", "provider": "groq", "description": "Google open-source"},
     # HuggingFace
     {"id": "Qwen/Qwen2.5-72B-Instruct", "name": "Qwen 2.5 72B", "provider": "huggingface", "description": "Open-source"},
-    {"id": "meta-llama/Meta-Llama-3-70B-Instruct", "name": "Llama 3 70B", "provider": "huggingface", "description": "Meta open-source"},
+    {"id": "meta-llama/Llama-3.1-70B-Instruct", "name": "Llama 3.1 70B", "provider": "huggingface", "description": "Meta open-source"},
 ]
 
 _PROVIDER_MAP = {m["id"]: m["provider"] for m in AVAILABLE_MODELS}

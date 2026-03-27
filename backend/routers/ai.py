@@ -19,7 +19,7 @@ router = APIRouter()
 class GeneratePostRequest(BaseModel):
     topic: str
     platform: str = "telegram"
-    model: str = "gpt-4o-mini"
+    model: str = "llama-3.3-70b-versatile"
     prompt_template: Optional[str] = None
     tone: Optional[str] = None
     length: Optional[str] = "medium"
@@ -28,7 +28,7 @@ class GeneratePostRequest(BaseModel):
 class ContentPlanRequest(BaseModel):
     topic: str
     platform: str = "telegram"
-    model: str = "gpt-4o-mini"
+    model: str = "llama-3.3-70b-versatile"
     days: int = 7
     posts_per_day: int = 1
 

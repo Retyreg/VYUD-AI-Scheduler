@@ -24,7 +24,7 @@ def generate_post(topic):
         "Пост должен быть информативным, engaging и не длиннее 200 символов."
     )
     response = groq.chat.completions.create(
-        model="llama3-8b-8192",
+        model="llama-3.1-8b-instant",
         messages=[{"role": "user", "content": prompt}],
         max_tokens=200,
     )

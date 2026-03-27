@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { apiFetch } from '$lib/api';
+	import { lang, t } from '$lib/i18n';
 
 	type AnalyticsItem = {
 		id: string;
@@ -42,7 +43,7 @@
 				apiFetch('/api/analytics/summary'),
 			]);
 			if (aRes.ok) analytics = await aRes.json();
-			else { const d = await aRes.json(); error = d.detail || 'Ошибка загрузки'; }
+			else { const d = await aRes.json(); error = d.detail || 'Error'; }
 			if (sRes.ok) summary = await sRes.json();
 		} catch (e: any) {
 			error = e.message;
@@ -57,7 +58,9 @@
 		try {
 			const res = await apiFetch('/api/analytics/refresh', { method: 'POST' });
 			if (res.ok) {
-				refreshMsg = 'Обновление запущено. Данные появятся через ~30 секунд.';
+				refreshMsg = $lang === 'ru'
+					? 'Обновление запущено. Данные появятся через ~30 секунд.'
+					: 'Refresh started. Data will appear in ~30 seconds.';
 				setTimeout(loadData, 30000);
 			}
 		} catch (e: any) {
@@ -78,7 +81,7 @@
 
 	function fmtDate(dt: string) {
 		if (!dt) return '—';
-		return new Date(dt).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+		return new Date(dt).toLocaleString($lang === 'ru' ? 'ru-RU' : 'en-US', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 	}
 
 	const PLATFORM_COLORS: Record<string, string> = {
@@ -87,17 +90,15 @@
 </script>
 
 <svelte:head>
-	<title>Аналитика — VYUD Publisher</title>
+	<title>{$t('an.title')} — VYUD Publisher</title>
 </svelte:head>
 
 <div class="max-w-screen-xl mx-auto px-4 py-8">
 	<!-- Header -->
 	<div class="flex items-center justify-between mb-6 flex-wrap gap-3">
 		<div>
-			<h1 class="text-2xl font-bold text-gray-100">Аналитика</h1>
-			<p class="text-sm text-gray-400 mt-1">
-				Метрики по опубликованным постам · обновляется автоматически каждые 30 мин
-			</p>
+			<h1 class="text-2xl font-bold text-gray-100">{$t('an.title')}</h1>
+			<p class="text-sm text-gray-400 mt-1">{$t('an.subtitle')}</p>
 		</div>
 		<button
 			on:click={triggerRefresh}
@@ -105,9 +106,9 @@
 			class="flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-60 text-white text-sm font-medium rounded-xl transition-colors"
 		>
 			{#if refreshing}
-				<span class="animate-spin">↻</span> Обновление...
+				<span class="animate-spin">↻</span> {$t('an.refreshing')}
 			{:else}
-				↻ Обновить сейчас
+				{$t('an.refresh')}
 			{/if}
 		</button>
 	</div>
@@ -123,11 +124,11 @@
 	{#if summary}
 		<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
 			{#each [
-				['Постов', fmt(summary.total_posts), '📄'],
-				['Подписчики', fmt(summary.total_subscribers), '👥'],
-				['Лайки', fmt(summary.total_likes), '❤️'],
-				['Комменты', fmt(summary.total_comments), '💬'],
-				['Репосты', fmt(summary.total_shares), '🔁'],
+				[$t('an.posts'), fmt(summary.total_posts), '📄'],
+				[$t('an.subscribers'), fmt(summary.total_subscribers), '👥'],
+				[$t('an.likes'), fmt(summary.total_likes), '❤️'],
+				[$t('an.comments'), fmt(summary.total_comments), '💬'],
+				[$t('an.shares'), fmt(summary.total_shares), '🔁'],
 			] as [label, val, icon]}
 				<div class="bg-gray-900 border border-gray-800 rounded-2xl p-4 text-center">
 					<p class="text-2xl mb-1">{icon}</p>
@@ -146,18 +147,18 @@
 							<span class="text-xs font-bold text-white px-2 py-0.5 rounded {PLATFORM_COLORS[platform] || 'bg-gray-600'}">
 								{platform}
 							</span>
-							<span class="text-xs text-gray-400">{stats.posts} постов</span>
+							<span class="text-xs text-gray-400">{stats.posts} {$t('an.posts').toLowerCase()}</span>
 						</div>
 						<div class="grid grid-cols-2 gap-2 text-xs text-gray-300">
 							{#if stats.subscribers}
-								<span class="text-gray-400">Подписчики</span>
+								<span class="text-gray-400">{$t('an.subscribers')}</span>
 								<span class="text-right font-medium">{fmt(stats.subscribers)}</span>
 							{/if}
-							<span class="text-gray-400">Лайки</span>
+							<span class="text-gray-400">{$t('an.likes')}</span>
 							<span class="text-right font-medium">{fmt(stats.likes)}</span>
-							<span class="text-gray-400">Комменты</span>
+							<span class="text-gray-400">{$t('an.comments')}</span>
 							<span class="text-right font-medium">{fmt(stats.comments)}</span>
-							<span class="text-gray-400">Репосты</span>
+							<span class="text-gray-400">{$t('an.shares')}</span>
 							<span class="text-right font-medium">{fmt(stats.shares)}</span>
 						</div>
 					</div>
@@ -168,15 +169,15 @@
 
 	<!-- Table -->
 	{#if loading}
-		<div class="text-center py-16 text-gray-400">Загрузка...</div>
+		<div class="text-center py-16 text-gray-400">{$t('loading')}</div>
 	{:else if analytics.length === 0}
 		<div class="text-center py-16">
 			<p class="text-4xl mb-3">📊</p>
-			<p class="text-gray-400 mb-2">Нет данных аналитики</p>
+			<p class="text-gray-400 mb-2">{$t('an.noData')}</p>
 			<p class="text-sm text-gray-500">
-				Данные появятся после первой публикации поста.<br>
-				Telegram: показывает подписчиков канала.<br>
-				LinkedIn: лайки, комменты и репосты поста.
+				{$t('an.noDataHint')}<br>
+				{$t('an.tgHint')}<br>
+				{$t('an.liHint')}
 			</p>
 		</div>
 	{:else}
@@ -184,13 +185,13 @@
 			<table class="w-full text-sm">
 				<thead>
 					<tr class="border-b border-gray-800 text-gray-400 text-xs">
-						<th class="text-left px-5 py-3 font-medium">Пост</th>
-						<th class="text-left px-5 py-3 font-medium">Платформа</th>
-						<th class="text-right px-5 py-3 font-medium">Подписчики</th>
-						<th class="text-right px-5 py-3 font-medium">Лайки</th>
-						<th class="text-right px-5 py-3 font-medium">Репосты</th>
-						<th class="text-right px-5 py-3 font-medium">Комменты</th>
-						<th class="text-right px-5 py-3 font-medium">Обновлено</th>
+						<th class="text-left px-5 py-3 font-medium">{$t('an.post')}</th>
+						<th class="text-left px-5 py-3 font-medium">{$t('an.platform')}</th>
+						<th class="text-right px-5 py-3 font-medium">{$t('an.subscribers')}</th>
+						<th class="text-right px-5 py-3 font-medium">{$t('an.likes')}</th>
+						<th class="text-right px-5 py-3 font-medium">{$t('an.shares')}</th>
+						<th class="text-right px-5 py-3 font-medium">{$t('an.comments')}</th>
+						<th class="text-right px-5 py-3 font-medium">{$t('an.updated')}</th>
 					</tr>
 				</thead>
 				<tbody>

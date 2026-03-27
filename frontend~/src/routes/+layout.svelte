@@ -5,8 +5,8 @@
 	import { browser } from '$app/environment';
 	import { onMount } from 'svelte';
 	import { isTokenExpired } from '$lib/api';
+	import { lang, t } from '$lib/i18n';
 
-	// Public routes that don't require auth
 	const PUBLIC_ROUTES = ['/login', '/register'];
 
 	onMount(() => {
@@ -25,14 +25,18 @@
 		goto('/login');
 	}
 
+	function toggleLang() {
+		lang.update((l) => (l === 'ru' ? 'en' : 'ru'));
+	}
+
 	$: isPublicPage = PUBLIC_ROUTES.some((r) => $page.url.pathname.startsWith(r));
 
-	const navItems = [
-		{ href: '/', label: 'Календарь', icon: '📅' },
-		{ href: '/create', label: 'Создать пост', icon: '✏️' },
-		{ href: '/generate', label: 'AI Генерация', icon: '🤖' },
-		{ href: '/settings', label: 'Настройки', icon: '⚙️' },
-		{ href: '/analytics', label: 'Аналитика', icon: '📊' }
+	$: navItems = [
+		{ href: '/', label: $t('nav.calendar'), icon: '📅' },
+		{ href: '/create', label: $t('nav.create'), icon: '✏️' },
+		{ href: '/generate', label: $t('nav.generate'), icon: '🤖' },
+		{ href: '/settings', label: $t('nav.settings'), icon: '⚙️' },
+		{ href: '/analytics', label: $t('nav.analytics'), icon: '📊' }
 	];
 </script>
 
@@ -40,7 +44,6 @@
 	<slot />
 {:else}
 	<div class="flex flex-col min-h-screen">
-		<!-- Top navigation -->
 		<header class="border-b border-gray-800 bg-gray-900 sticky top-0 z-50">
 			<div class="max-w-screen-2xl mx-auto px-4 h-14 flex items-center justify-between">
 				<div class="flex items-center gap-6">
@@ -60,12 +63,21 @@
 						{/each}
 					</nav>
 				</div>
-				<button
-					on:click={logout}
-					class="text-sm text-gray-400 hover:text-gray-100 transition-colors px-3 py-1.5 rounded-md hover:bg-gray-800"
-				>
-					Выйти
-				</button>
+				<div class="flex items-center gap-2">
+					<button
+						on:click={toggleLang}
+						class="text-xs font-semibold px-2.5 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-gray-100 transition-colors border border-gray-700"
+						title="Switch language"
+					>
+						{$lang === 'ru' ? 'EN' : 'RU'}
+					</button>
+					<button
+						on:click={logout}
+						class="text-sm text-gray-400 hover:text-gray-100 transition-colors px-3 py-1.5 rounded-md hover:bg-gray-800"
+					>
+						{$t('nav.logout')}
+					</button>
+				</div>
 			</div>
 			<!-- Mobile nav -->
 			<div class="md:hidden flex items-center gap-1 px-4 pb-2 overflow-x-auto">

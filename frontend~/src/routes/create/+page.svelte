@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
 	import { apiFetch } from '$lib/api';
+	import { t } from '$lib/i18n';
 
 	type Account = { id: string; name: string; platform: string };
 
@@ -32,7 +32,7 @@
 	async function submitPost() {
 		error = '';
 		success = '';
-		if (!content.trim()) { error = 'Введите текст поста'; return; }
+		if (!content.trim()) { error = $t('create.enterContent'); return; }
 		loading = true;
 		try {
 			const body: Record<string, any> = {
@@ -48,13 +48,13 @@
 				body: JSON.stringify(body)
 			});
 			const data = await res.json();
-			if (!res.ok) { error = data.detail || 'Ошибка создания поста'; return; }
-			success = scheduledAt ? 'Пост запланирован!' : 'Черновик сохранён!';
+			if (!res.ok) { error = data.detail || 'Error'; return; }
+			success = scheduledAt ? $t('create.scheduled') : $t('create.saved');
 			content = '';
 			scheduledAt = '';
 			accountId = '';
 		} catch (e: any) {
-			error = e.message || 'Ошибка сети';
+			error = e.message || 'Network error';
 		} finally {
 			loading = false;
 		}
@@ -63,8 +63,8 @@
 	async function publishNow() {
 		error = '';
 		success = '';
-		if (!content.trim()) { error = 'Введите текст поста'; return; }
-		if (!accountId) { error = 'Выберите аккаунт для публикации'; return; }
+		if (!content.trim()) { error = $t('create.enterContent'); return; }
+		if (!accountId) { error = $t('create.selectAccount'); return; }
 		loading = true;
 		try {
 			const body = { content, platform, account_id: accountId, status: 'published' };
@@ -73,12 +73,12 @@
 				body: JSON.stringify(body)
 			});
 			const data = await res.json();
-			if (!res.ok) { error = data.detail || 'Ошибка публикации'; return; }
-			success = 'Пост опубликован!';
+			if (!res.ok) { error = data.detail || 'Error'; return; }
+			success = $t('create.published');
 			content = '';
 			accountId = '';
 		} catch (e: any) {
-			error = e.message || 'Ошибка сети';
+			error = e.message || 'Network error';
 		} finally {
 			loading = false;
 		}
@@ -86,19 +86,19 @@
 </script>
 
 <svelte:head>
-	<title>Создать пост — VYUD Publisher</title>
+	<title>{$t('create.title')} — VYUD Publisher</title>
 </svelte:head>
 
 <div class="max-w-3xl mx-auto px-4 py-8">
 	<div class="mb-6">
-		<h1 class="text-2xl font-bold text-gray-100">Создать пост</h1>
-		<p class="text-sm text-gray-400 mt-1">Напишите текст, выберите платформу и опубликуйте или запланируйте</p>
+		<h1 class="text-2xl font-bold text-gray-100">{$t('create.title')}</h1>
+		<p class="text-sm text-gray-400 mt-1">{$t('create.subtitle')}</p>
 	</div>
 
 	<div class="bg-gray-900 border border-gray-800 rounded-2xl p-6 flex flex-col gap-5">
 		<!-- Platform selector -->
 		<div>
-			<label class="block text-sm text-gray-400 mb-2">Платформа</label>
+			<label class="block text-sm text-gray-400 mb-2">{$t('create.platform')}</label>
 			<div class="flex gap-2">
 				{#each PLATFORMS as p}
 					<button
@@ -117,12 +117,12 @@
 		<!-- Account -->
 		{#if filteredAccounts.length > 0}
 			<div>
-				<label class="block text-sm text-gray-400 mb-2">Аккаунт</label>
+				<label class="block text-sm text-gray-400 mb-2">{$t('create.account')}</label>
 				<select
 					bind:value={accountId}
 					class="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-sm text-gray-100 outline-none focus:ring-2 focus:ring-violet-500"
 				>
-					<option value="">— Выберите аккаунт —</option>
+					<option value="">{$t('selectAccount')}</option>
 					{#each filteredAccounts as acc}
 						<option value={acc.id}>{acc.name}</option>
 					{/each}
@@ -130,26 +130,26 @@
 			</div>
 		{:else}
 			<p class="text-xs text-yellow-400 bg-yellow-900/20 border border-yellow-800 rounded-xl px-4 py-2">
-				Нет аккаунтов для {platform}.
-				<a href="/settings" class="underline hover:text-yellow-300">Добавить в настройках →</a>
+				{$t('create.noAccounts')} {platform}.
+				<a href="/settings" class="underline hover:text-yellow-300">{$t('create.addInSettings')}</a>
 			</p>
 		{/if}
 
 		<!-- Content -->
 		<div>
-			<label class="block text-sm text-gray-400 mb-2">Текст поста</label>
+			<label class="block text-sm text-gray-400 mb-2">{$t('create.content')}</label>
 			<textarea
 				bind:value={content}
 				rows="8"
-				placeholder="Введите текст поста..."
+				placeholder={$t('create.enterContent')}
 				class="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-sm text-gray-100 outline-none focus:ring-2 focus:ring-violet-500 resize-y"
 			></textarea>
-			<p class="text-right text-xs text-gray-500 mt-1">{content.length} символов</p>
+			<p class="text-right text-xs text-gray-500 mt-1">{content.length} {$t('chars')}</p>
 		</div>
 
 		<!-- Schedule -->
 		<div>
-			<label class="block text-sm text-gray-400 mb-2">Запланировать (опционально)</label>
+			<label class="block text-sm text-gray-400 mb-2">{$t('create.schedule')}</label>
 			<input
 				type="datetime-local"
 				bind:value={scheduledAt}
@@ -171,14 +171,14 @@
 				disabled={loading}
 				class="flex-1 bg-violet-600 hover:bg-violet-500 disabled:opacity-60 text-white font-semibold rounded-xl py-3 transition-colors text-sm"
 			>
-				{scheduledAt ? 'Запланировать' : 'Сохранить черновик'}
+				{scheduledAt ? $t('create.schedule_btn') : $t('create.draft')}
 			</button>
 			<button
 				on:click={publishNow}
 				disabled={loading || !accountId}
 				class="flex-1 bg-green-700 hover:bg-green-600 disabled:opacity-60 text-white font-semibold rounded-xl py-3 transition-colors text-sm"
 			>
-				Опубликовать сейчас
+				{$t('create.publishNow')}
 			</button>
 		</div>
 	</div>

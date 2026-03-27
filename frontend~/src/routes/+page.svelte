@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { apiFetch } from '$lib/api';
+	import { lang, t } from '$lib/i18n';
 
 	type Post = {
 		id: string;
@@ -23,11 +24,23 @@
 		'Январь','Февраль','Март','Апрель','Май','Июнь',
 		'Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'
 	];
+	const MONTHS_EN = [
+		'January','February','March','April','May','June',
+		'July','August','September','October','November','December'
+	];
 	const MONTHS_RU_GENITIVE = [
 		'января','февраля','марта','апреля','мая','июня',
 		'июля','августа','сентября','октября','ноября','декабря'
 	];
-	const DAYS_SHORT = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+	const MONTHS_EN_SHORT = [
+		'Jan','Feb','Mar','Apr','May','Jun',
+		'Jul','Aug','Sep','Oct','Nov','Dec'
+	];
+	const DAYS_SHORT_RU = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+	const DAYS_SHORT_EN = ['Mo','Tu','We','Th','Fr','Sa','Su'];
+
+	$: MONTHS = $lang === 'ru' ? MONTHS_RU : MONTHS_EN;
+	$: DAYS_SHORT = $lang === 'ru' ? DAYS_SHORT_RU : DAYS_SHORT_EN;
 
 	const PLATFORM_COLORS: Record<string, string> = {
 		telegram: 'bg-blue-500',
@@ -48,7 +61,7 @@
 			if (!res.ok) throw new Error(`HTTP ${res.status}`);
 			posts = await res.json();
 		} catch (e: any) {
-			error = e.message || 'Ошибка загрузки постов';
+			error = e.message || $t('cal.errorLoad');
 		} finally {
 			loading = false;
 		}
@@ -86,8 +99,6 @@
 
 	$: scheduledPosts = posts
 		.filter((p) => {
-			// Show post in Scheduled panel if its scheduled_at is in the future,
-			// regardless of status — a post stays visible until the scheduled time arrives.
 			if (!p.scheduled_at) return false;
 			return new Date(p.scheduled_at) >= new Date();
 		})
@@ -107,22 +118,25 @@
 	}
 
 	function isToday(day: number) {
-		const t = new Date();
-		return t.getFullYear() === currentYear && t.getMonth() === currentMonth && t.getDate() === day;
+		const now = new Date();
+		return now.getFullYear() === currentYear && now.getMonth() === currentMonth && now.getDate() === day;
 	}
 
 	function formatTime(dt: string) {
 		const d = new Date(dt);
-		return d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+		return d.toLocaleTimeString($lang === 'ru' ? 'ru-RU' : 'en-US', { hour: '2-digit', minute: '2-digit' });
 	}
 	function formatDay(dt: string) {
 		const d = new Date(dt);
-		return `${d.getDate()} ${MONTHS_RU_GENITIVE[d.getMonth()]}, ${formatTime(dt)}`;
+		if ($lang === 'ru') {
+			return `${d.getDate()} ${MONTHS_RU_GENITIVE[d.getMonth()]}, ${formatTime(dt)}`;
+		}
+		return `${MONTHS_EN_SHORT[d.getMonth()]} ${d.getDate()}, ${formatTime(dt)}`;
 	}
 </script>
 
 <svelte:head>
-	<title>Календарь — VYUD Publisher</title>
+	<title>{$t('nav.calendar')} — VYUD Publisher</title>
 </svelte:head>
 
 <div class="max-w-screen-2xl mx-auto px-4 py-6 flex gap-6 flex-col xl:flex-row">
@@ -131,7 +145,7 @@
 		<!-- Header -->
 		<div class="flex items-center justify-between mb-6">
 			<h2 class="text-xl font-semibold capitalize">
-				{MONTHS_RU[currentMonth]} {currentYear} г.
+				{MONTHS[currentMonth]} {currentYear}
 			</h2>
 			<div class="flex items-center gap-2">
 				<button
@@ -146,7 +160,7 @@
 		</div>
 
 		{#if loading}
-			<div class="text-center py-16 text-gray-400">Загрузка...</div>
+			<div class="text-center py-16 text-gray-400">{$t('loading')}</div>
 		{:else if error}
 			<div class="text-center py-16 text-red-400">{error}</div>
 		{:else}
@@ -190,7 +204,7 @@
 			</div>
 
 			<div class="mt-4 text-xs text-gray-500">
-				Всего: {totalPosts} | Запланировано: {scheduledCount}
+				{$t('cal.total')}: {totalPosts} | {$t('cal.scheduledCount')}: {scheduledCount}
 			</div>
 		{/if}
 	</div>
@@ -199,17 +213,17 @@
 	<div class="w-full xl:w-80 flex flex-col gap-4">
 		<div class="bg-gray-900 border border-gray-800 rounded-2xl p-5">
 			<div class="flex items-center justify-between mb-4">
-				<h3 class="font-semibold text-gray-100">Запланировано</h3>
+				<h3 class="font-semibold text-gray-100">{$t('cal.scheduled')}</h3>
 				<a
 					href="/create"
 					class="text-xs text-violet-400 hover:text-violet-300 font-medium transition-colors"
-				>+ Добавить</a>
+				>{$t('cal.add')}</a>
 			</div>
 
 			{#if loading}
-				<p class="text-sm text-gray-400">Загрузка...</p>
+				<p class="text-sm text-gray-400">{$t('loading')}</p>
 			{:else if scheduledPosts.length === 0}
-				<p class="text-sm text-gray-400">Нет запланированных постов</p>
+				<p class="text-sm text-gray-400">{$t('cal.noScheduled')}</p>
 			{:else}
 				<div class="flex flex-col gap-3">
 					{#each scheduledPosts as post}

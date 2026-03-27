@@ -2,6 +2,7 @@
 
 Checks for scheduled posts every minute and publishes them via the
 appropriate platform service (Telegram / LinkedIn / VK).
+Refreshes analytics metrics every 30 minutes.
 """
 
 import logging
@@ -11,7 +12,6 @@ from typing import Any, Dict, Optional
 import httpx
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
-# Import platform services at module level so import errors surface at startup
 from services.linkedin import post_to_linkedin
 from services.telegram import send_message
 from services.vk import post_to_vk
@@ -63,25 +63,33 @@ async def _publish_post(post: Dict[str, Any]) -> None:
             return
 
     try:
+        platform_post_id: Optional[str] = None
+
         if platform == "telegram":
             token = account.get("token", os.getenv("TELEGRAM_BOT_TOKEN", ""))
             channel = account.get("channel_id", os.getenv("TELEGRAM_CHAT_ID", ""))
-            await send_message(
+            result = await send_message(
                 bot_token=token,
                 channel_id=channel,
                 text=content,
                 image_url=image_url,
             )
+            # Capture Telegram message_id for analytics
+            message_id = result.get("result", {}).get("message_id")
+            if message_id:
+                platform_post_id = str(message_id)
 
         elif platform == "linkedin":
             token = account.get("token", os.getenv("LINKEDIN_ACCESS_TOKEN", ""))
             profile_id = account.get("channel_id", os.getenv("LINKEDIN_PROFILE_ID", ""))
-            await post_to_linkedin(
+            result = await post_to_linkedin(
                 access_token=token,
                 profile_id=profile_id,
                 text=content,
                 image_url=image_url,
             )
+            # Capture LinkedIn post URN for analytics
+            platform_post_id = result.get("id") or None
 
         elif platform == "vk":
             token = account.get("token", os.getenv("VK_ACCESS_TOKEN", ""))
@@ -96,22 +104,25 @@ async def _publish_post(post: Dict[str, Any]) -> None:
         else:
             raise ValueError(f"Unsupported platform: {platform}")
 
-        await _mark_post_published(post_id)
-        logger.info("Post %s published successfully on %s", post_id, platform)
+        await _mark_post_published(post_id, platform_post_id)
+        logger.info("Post %s published on %s (platform_post_id=%s)", post_id, platform, platform_post_id)
 
     except Exception as e:
         logger.error("Failed to publish post %s: %s", post_id, e)
         await _mark_post_failed(post_id, str(e))
 
 
-async def _mark_post_published(post_id: str) -> None:
+async def _mark_post_published(post_id: str, platform_post_id: Optional[str] = None) -> None:
+    update: Dict[str, Any] = {"status": "published"}
+    if platform_post_id:
+        update["platform_post_id"] = platform_post_id
     try:
         async with httpx.AsyncClient() as client:
             await client.patch(
                 f"{SUPABASE_URL}/rest/v1/posts",
                 headers=_service_headers(),
                 params={"id": f"eq.{post_id}"},
-                json={"status": "published"},
+                json=update,
             )
     except Exception as e:
         logger.error("Failed to mark post %s as published: %s", post_id, e)
@@ -162,6 +173,108 @@ async def check_and_publish_scheduled_posts() -> None:
         await _publish_post(post)
 
 
+async def refresh_analytics() -> None:
+    """Fetch fresh metrics for all published posts and upsert into analytics table."""
+    from services.analytics import fetch_telegram_channel_stats, fetch_linkedin_post_stats
+    from datetime import datetime, timezone
+
+    logger.info("Starting analytics refresh")
+
+    # Fetch all published posts that have a linked account
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                f"{SUPABASE_URL}/rest/v1/posts",
+                headers=_service_headers(),
+                params={
+                    "status": "eq.published",
+                    "select": "id,platform,account_id,platform_post_id,content",
+                    "order": "created_at.desc",
+                    "limit": "100",
+                },
+            )
+        resp.raise_for_status()
+        posts = resp.json()
+    except Exception as e:
+        logger.error("Analytics refresh: failed to fetch posts: %s", e)
+        return
+
+    if not posts:
+        logger.debug("Analytics refresh: no published posts found")
+        return
+
+    # Collect unique account IDs to batch-fetch credentials
+    account_ids = list({p["account_id"] for p in posts if p.get("account_id")})
+    accounts_map: Dict[str, Dict[str, Any]] = {}
+    if account_ids:
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(
+                    f"{SUPABASE_URL}/rest/v1/publisher_accounts",
+                    headers=_service_headers(),
+                    params={"id": f"in.({','.join(account_ids)})"},
+                )
+            resp.raise_for_status()
+            for acc in resp.json():
+                accounts_map[acc["id"]] = acc
+        except Exception as e:
+            logger.error("Analytics refresh: failed to fetch accounts: %s", e)
+
+    now = datetime.now(timezone.utc).isoformat()
+    refreshed = 0
+
+    for post in posts:
+        post_id = post["id"]
+        platform = post.get("platform", "")
+        account = accounts_map.get(post.get("account_id", ""), {})
+        platform_post_id = post.get("platform_post_id")
+
+        try:
+            metrics: Dict[str, Any] = {}
+
+            if platform == "telegram":
+                token = account.get("token", os.getenv("TELEGRAM_BOT_TOKEN", ""))
+                channel = account.get("channel_id", os.getenv("TELEGRAM_CHAT_ID", ""))
+                if token and channel:
+                    metrics = await fetch_telegram_channel_stats(token, channel)
+
+            elif platform == "linkedin" and platform_post_id:
+                token = account.get("token", os.getenv("LINKEDIN_ACCESS_TOKEN", ""))
+                if token:
+                    metrics = await fetch_linkedin_post_stats(token, platform_post_id)
+
+            if not metrics:
+                continue
+
+            # Upsert into analytics table (match on post_id)
+            row = {
+                "post_id": post_id,
+                "platform": platform,
+                "views": metrics.get("views", 0),
+                "likes": metrics.get("likes", 0),
+                "comments": metrics.get("comments", 0),
+                "shares": metrics.get("shares", 0),
+                "subscribers": metrics.get("subscribers", 0),
+                "fetched_at": now,
+                "updated_at": now,
+                "post_content": (post.get("content") or "")[:200],
+            }
+
+            async with httpx.AsyncClient() as client:
+                upsert_resp = await client.post(
+                    f"{SUPABASE_URL}/rest/v1/analytics",
+                    headers={**_service_headers(), "Prefer": "resolution=merge-duplicates,return=minimal"},
+                    json=row,
+                )
+            upsert_resp.raise_for_status()
+            refreshed += 1
+
+        except Exception as e:
+            logger.warning("Analytics refresh: failed for post %s: %s", post_id, e)
+
+    logger.info("Analytics refresh complete — updated %d/%d posts", refreshed, len(posts))
+
+
 async def start_scheduler() -> None:
     global _scheduler
     if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
@@ -178,8 +291,15 @@ async def start_scheduler() -> None:
         id="auto_publish",
         replace_existing=True,
     )
+    _scheduler.add_job(
+        refresh_analytics,
+        trigger="interval",
+        minutes=30,
+        id="analytics_refresh",
+        replace_existing=True,
+    )
     _scheduler.start()
-    logger.info("APScheduler started — checking posts every minute")
+    logger.info("APScheduler started — publishing every 1 min, analytics every 30 min")
 
 
 async def stop_scheduler() -> None:

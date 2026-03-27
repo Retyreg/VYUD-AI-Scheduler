@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
+	import { apiFetch } from '$lib/api';
 
 	type Account = { id: string; name: string; platform: string };
 
@@ -19,16 +20,9 @@
 		{ value: 'vk', label: 'VK' }
 	];
 
-	function authHeaders(): Record<string, string> {
-		const token = localStorage.getItem('access_token');
-		const h: Record<string, string> = { 'Content-Type': 'application/json' };
-		if (token) h['Authorization'] = `Bearer ${token}`;
-		return h;
-	}
-
 	onMount(async () => {
 		try {
-			const res = await fetch('/api/accounts/', { headers: authHeaders() });
+			const res = await apiFetch('/api/accounts/');
 			if (res.ok) accounts = await res.json();
 		} catch {}
 	});
@@ -49,9 +43,8 @@
 			if (accountId) body.account_id = accountId;
 			if (scheduledAt) body.scheduled_at = new Date(scheduledAt).toISOString();
 
-			const res = await fetch('/api/posts/', {
+			const res = await apiFetch('/api/posts/', {
 				method: 'POST',
-				headers: authHeaders(),
 				body: JSON.stringify(body)
 			});
 			const data = await res.json();
@@ -75,9 +68,8 @@
 		loading = true;
 		try {
 			const body = { content, platform, account_id: accountId, status: 'published' };
-			const res = await fetch('/api/posts/', {
+			const res = await apiFetch('/api/posts/', {
 				method: 'POST',
-				headers: authHeaders(),
 				body: JSON.stringify(body)
 			});
 			const data = await res.json();

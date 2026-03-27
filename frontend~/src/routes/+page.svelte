@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { apiFetch } from '$lib/api';
 
 	type Post = {
 		id: string;
@@ -43,10 +44,7 @@
 		loading = true;
 		error = '';
 		try {
-			const token = localStorage.getItem('access_token');
-			const res = await fetch('/api/posts/', {
-				headers: token ? { Authorization: `Bearer ${token}` } : {}
-			});
+			const res = await apiFetch('/api/posts/');
 			if (!res.ok) throw new Error(`HTTP ${res.status}`);
 			posts = await res.json();
 		} catch (e: any) {

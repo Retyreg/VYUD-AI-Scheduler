@@ -4,6 +4,7 @@
 	import { goto } from '$app/navigation';
 	import { browser } from '$app/environment';
 	import { onMount } from 'svelte';
+	import { isTokenExpired } from '$lib/api';
 
 	// Public routes that don't require auth
 	const PUBLIC_ROUTES = ['/login', '/register'];
@@ -12,8 +13,9 @@
 		if (browser) {
 			const token = localStorage.getItem('access_token');
 			const isPublic = PUBLIC_ROUTES.some((r) => $page.url.pathname.startsWith(r));
-			if (!token && !isPublic) {
-				goto('/login');
+			if (!token || isTokenExpired(token)) {
+				localStorage.removeItem('access_token');
+				if (!isPublic) goto('/login');
 			}
 		}
 	});

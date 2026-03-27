@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { apiFetch } from '$lib/api';
 
 	type Model = { id: string; name: string; provider: string };
 	type ContentPlanItem = { topic: string; platform: string; content: string };
@@ -27,16 +28,9 @@
 		{ value: 'motivational', label: 'Мотивационный' }
 	];
 
-	function authHeaders(): Record<string, string> {
-		const token = localStorage.getItem('access_token');
-		const h: Record<string, string> = { 'Content-Type': 'application/json' };
-		if (token) h['Authorization'] = `Bearer ${token}`;
-		return h;
-	}
-
 	onMount(async () => {
 		try {
-			const res = await fetch('/api/ai/models', { headers: authHeaders() });
+			const res = await apiFetch('/api/ai/models');
 			if (res.ok) {
 				models = await res.json();
 				if (models.length > 0) selectedModel = models[0].id;
@@ -50,9 +44,8 @@
 		if (!topic.trim()) { error = 'Введите тему поста'; return; }
 		loadingPost = true;
 		try {
-			const res = await fetch('/api/ai/generate-post', {
+			const res = await apiFetch('/api/ai/generate-post', {
 				method: 'POST',
-				headers: authHeaders(),
 				body: JSON.stringify({ topic, platform, tone, language, model: selectedModel })
 			});
 			const data = await res.json();
@@ -71,9 +64,8 @@
 		if (!topic.trim()) { error = 'Введите тему для контент-плана'; return; }
 		loadingPlan = true;
 		try {
-			const res = await fetch('/api/ai/content-plan', {
+			const res = await apiFetch('/api/ai/content-plan', {
 				method: 'POST',
-				headers: authHeaders(),
 				body: JSON.stringify({ topic, platform, tone, language, model: selectedModel, days: planDays })
 			});
 			const data = await res.json();
@@ -89,10 +81,8 @@
 	async function savePostAsDraft() {
 		if (!generatedPost) return;
 		try {
-			const token = localStorage.getItem('access_token');
-			const res = await fetch('/api/posts/', {
+			const res = await apiFetch('/api/posts/', {
 				method: 'POST',
-				headers: { Authorization: `Bearer ${token || ''}`, 'Content-Type': 'application/json' },
 				body: JSON.stringify({ content: generatedPost, platform, status: 'draft' })
 			});
 			if (res.ok) { successMsg = 'Пост сохранён как черновик!'; }

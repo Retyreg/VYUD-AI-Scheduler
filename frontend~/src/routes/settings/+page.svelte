@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { apiFetch } from '$lib/api';
 
 	type Account = { id: string; name: string; platform: string; created_at: string };
 
@@ -15,18 +16,11 @@
 
 	let submitting = false;
 
-	function authHeaders(): Record<string, string> {
-		const token = localStorage.getItem('access_token');
-		const h: Record<string, string> = { 'Content-Type': 'application/json' };
-		if (token) h['Authorization'] = `Bearer ${token}`;
-		return h;
-	}
-
 	async function loadAccounts() {
 		loading = true;
 		error = '';
 		try {
-			const res = await fetch('/api/accounts/', { headers: authHeaders() });
+			const res = await apiFetch('/api/accounts/');
 			if (res.ok) accounts = await res.json();
 			else { const d = await res.json(); error = d.detail || 'Ошибка загрузки аккаунтов'; }
 		} catch (e: any) { error = e.message; }
@@ -39,8 +33,8 @@
 		if (!tgName || !tgToken || !tgChatId) { error = 'Заполните все поля Telegram'; return; }
 		submitting = true; error = ''; success = '';
 		try {
-			const res = await fetch('/api/accounts/telegram', {
-				method: 'POST', headers: authHeaders(),
+			const res = await apiFetch('/api/accounts/telegram', {
+				method: 'POST',
 				body: JSON.stringify({ name: tgName, bot_token: tgToken, channel_id: tgChatId })
 			});
 			const d = await res.json();
@@ -56,8 +50,8 @@
 		if (!liName || !liToken || !liProfileId) { error = 'Заполните все поля LinkedIn'; return; }
 		submitting = true; error = ''; success = '';
 		try {
-			const res = await fetch('/api/accounts/linkedin', {
-				method: 'POST', headers: authHeaders(),
+			const res = await apiFetch('/api/accounts/linkedin', {
+				method: 'POST',
 				body: JSON.stringify({ name: liName, access_token: liToken, profile_id: liProfileId })
 			});
 			const d = await res.json();
@@ -73,8 +67,8 @@
 		if (!vkName || !vkToken) { error = 'Заполните поля VK'; return; }
 		submitting = true; error = ''; success = '';
 		try {
-			const res = await fetch('/api/accounts/vk', {
-				method: 'POST', headers: authHeaders(),
+			const res = await apiFetch('/api/accounts/vk', {
+				method: 'POST',
 				body: JSON.stringify({ name: vkName, access_token: vkToken, group_id: vkGroupId || null })
 			});
 			const d = await res.json();

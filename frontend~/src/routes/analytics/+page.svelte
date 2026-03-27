@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { apiFetch } from '$lib/api';
 
 	type AnalyticsItem = {
 		id: string;
@@ -17,15 +18,10 @@
 	let loading = true;
 	let error = '';
 
-	function authHeaders() {
-		const token = localStorage.getItem('access_token');
-		return { Authorization: `Bearer ${token || ''}` };
-	}
-
 	onMount(async () => {
 		loading = true;
 		try {
-			const res = await fetch('/api/analytics/', { headers: authHeaders() });
+			const res = await apiFetch('/api/analytics/');
 			if (res.ok) analytics = await res.json();
 			else { const d = await res.json(); error = d.detail || 'Ошибка загрузки'; }
 		} catch (e: any) { error = e.message; }

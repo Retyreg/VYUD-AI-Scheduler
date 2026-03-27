@@ -1,388 +1,169 @@
 # VYUD Publisher
 
-**AI-powered social media automation platform** for content creation, scheduling, and multi-platform publishing.
+**AI-powered social media automation platform** — create, schedule, and publish content across Telegram, LinkedIn and VK using 11 language models.
 
-[![Version](https://img.shields.io/badge/version-2.2.0-blue.svg)](https://github.com/Retyreg/VYUD-AI-Scheduler/releases)
+[![Version](https://img.shields.io/badge/version-2.3.0-blue.svg)](https://github.com/Retyreg/VYUD-AI-Scheduler/releases/tag/v2.3.0)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Live Demo](https://img.shields.io/badge/demo-publisher.vyud.tech-purple.svg)](https://publisher.vyud.tech)
+[![Live](https://img.shields.io/badge/live-publisher.vyud.tech-blueviolet.svg)](https://publisher.vyud.tech)
 
-Part of the **VYUD AI ecosystem** ([vyud.tech](https://vyud.tech)) - transforming content creation through artificial intelligence.
-
-## ⚡ Quick Start (Local Development)
-
-### Prerequisites
-- Python 3.8+
-- Git
-
-### 1. Clone the repository
-```bash
-git clone https://github.com/Retyreg/VYUD-AI-Scheduler.git
-cd VYUD-AI-Scheduler
-```
-
-### 2. Install Python dependencies
-```bash
-pip install -r requirements.txt
-```
-
-### 3. Configure environment variables
-```bash
-cp .env.example .env
-```
-Open `.env` in your terminal editor and replace the placeholder values with your real API keys.
-
-**Choose any editor you like:**
-
-```bash
-# nano — simplest, beginner-friendly (save: Ctrl+O → Enter → Ctrl+X)
-nano .env
-
-# vim — classic terminal editor (save & exit: Esc → :wq → Enter)
-vim .env
-
-# VS Code (if installed)
-code .env
-
-# macOS default app (opens in TextEdit or your associated editor)
-open .env
-```
-
-The file contains these variables — fill in the real values:
-```
-GROQ_API_KEY=your-groq-api-key-here
-TELEGRAM_BOT_TOKEN=your-telegram-bot-token-here
-TELEGRAM_CHAT_ID=your-telegram-chat-id-here
-LINKEDIN_ACCESS_TOKEN=your-linkedin-access-token-here
-LINKEDIN_PROFILE_ID=your-linkedin-profile-id-here
-```
-
-*(Optional)* If you use the Google Gemini integration in Streamlit, also copy the Streamlit secrets template:
-```bash
-cp .streamlit/secrets.toml.example .streamlit/secrets.toml
-```
-Then open `.streamlit/secrets.toml` and add your `GEMINI_API_KEY`.
-
-### 4. Run the application
-
-**Flask API server** (port 5000):
-```bash
-python app.py
-```
-
-**Streamlit UI** (port 8501) — in a separate terminal:
-```bash
-streamlit run streamlit_app.py
-```
-
-**Auto-posting script** (generate and post AI content):
-```bash
-python auto_post.py
-```
-
-> **Note:** The Flask API must be running before starting the Streamlit UI.
+Part of the **VYUD AI ecosystem** — [vyud.tech](https://vyud.tech)
 
 ---
 
-## 🚀 Features
+## ✨ What's New in v2.3
 
-### Content Management
-- **📅 Visual Calendar** - Drag-and-drop scheduling with monthly/weekly views
-- **✨ AI Generation** - 11 LLM models including GPT-4o, Claude, Gemini, Llama
-- **📝 Post Editor** - Rich text editing with real-time preview
-- **🔄 Batch Operations** - Bulk scheduling and content planning
+| Feature | Details |
+|---------|---------|
+| 🤖 **AI → Publish in one flow** | After generating a post, immediately draft / schedule / publish to a channel |
+| 📋 **Content plan → Supabase** | Save AI content plan items as scheduled posts with auto-calculated dates |
+| 📊 **Real analytics** | Live metrics from Telegram (`getChatMemberCount`) and LinkedIn (`socialMetadata`) |
+| 🌐 **EN / RU localization** | Full interface toggle — all pages, nav, toasts, labels |
+| 🎨 **Brand identity** | SVG favicon, logo mark, Syne + DM Sans fonts, VYUD blue `#0D7EFF` |
+| 🧠 **Educational tone** | New "Scientific / Educational" tone of voice added to AI generation |
+| 📝 **Larger topic field** | Topic / Idea textarea expanded to 5 rows |
 
-### AI-Powered Content
-- **🤖 Multi-Model Support** - OpenAI, Anthropic, Google AI, Groq, HuggingFace
-- **📋 Template Library** - Customizable prompt templates with variables
-- **🎯 Platform Optimization** - Content tailored for each social platform
-- **📊 Content Planning** - AI-generated editorial calendars
+---
 
-### Multi-Platform Publishing
-- **📱 Telegram** - Channel automation with Bot API
-- **💼 LinkedIn** - Professional content publishing  
-- **🔜 Instagram & VK** - Coming soon
+## 🏗️ Stack
 
-### Management & Analytics
-- **👥 Account Management** - Multi-account support with unified dashboard
-- **📈 Performance Tracking** - UTM tracking and engagement metrics
-- **🔐 Secure Storage** - Encrypted credentials and API keys
-- **⚡ Real-time Updates** - Live status tracking and notifications
+| Layer | Technology |
+|-------|------------|
+| **Frontend** | SvelteKit + TailwindCSS, Syne / DM Sans fonts |
+| **Backend** | FastAPI (Python 3.11), APScheduler |
+| **Database** | Supabase (PostgreSQL) + Row Level Security |
+| **Auth** | Supabase JWT — auto-refresh on 401 / expiry |
+| **AI** | OpenAI, Anthropic, Google AI, Groq, HuggingFace (11 models) |
+| **Platforms** | Telegram Bot API, LinkedIn UGC API, VK API |
+| **Infrastructure** | Ubuntu VPS, Nginx reverse-proxy, systemd |
 
-## 🏗️ Architecture
+---
 
-### Tech Stack
+## 🚀 Deploy (VPS)
 
-| Component | Technology | Purpose |
-|-----------|------------|---------|
-| **Frontend** | SvelteKit + TailwindCSS | Reactive UI with modern styling |
-| **Backend** | FastAPI + Python | High-performance async API |
-| **Database** | Supabase (PostgreSQL) | Real-time data with built-in auth |
-| **Scheduling** | APScheduler | Automated post publishing |
-| **AI Integration** | Multiple LLM APIs | Content generation |
-| **Infrastructure** | Ubuntu VPS + Nginx | Production deployment |
+> All commands run **on the server** (`ssh root@<server-ip>`), not on your local machine.
+
+```bash
+cd /root/publisher_app
+
+# 1. Pull latest
+git pull origin main
+
+# 2. Rebuild frontend
+cd frontend~ && npm run build && systemctl restart publisher-frontend && cd ..
+
+# 3. Restart backend (if backend changed)
+systemctl restart publisher-api
+
+# 4. Health check
+curl -s http://localhost:8000/health
+```
+
+### First-time setup
+
+```bash
+# Backend venv
+python3 -m venv backend/venv
+backend/venv/bin/pip install -r backend/requirements.txt
+
+# Frontend
+cd frontend~
+npm install
+npm run build
+```
+
+### Diagnostics
+
+```bash
+systemctl status publisher-api --no-pager -l | head -20
+journalctl -u publisher-api -n 50 --no-pager
+df -h   # check disk — full disk silently kills uvicorn
+```
+
+---
 
 ## 🔌 API Reference
 
-### Core Endpoints
+### Posts
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/api/posts/` | List posts; filter with `?status=scheduled` or `?platform=Telegram` |
-| `POST` | `/api/posts/` | Create new post (`status` defaults to `"scheduled"`) |
-| `PATCH` | `/api/posts/{id}` | Update post fields (status, content, timestamp) |
+| `GET` | `/api/posts/` | List posts (`?status=scheduled&platform=telegram`) |
+| `POST` | `/api/posts/` | Create post (`content`, `platform`, `status`, `scheduled_at`, `account_id`) |
+| `PATCH` | `/api/posts/{id}` | Update post |
 | `DELETE` | `/api/posts/{id}` | Delete post |
-
-> **Legacy endpoints** (kept for backward compatibility):
-> `POST /post` and `GET /post/history` still work but return tuple arrays instead of objects.
 
 ### AI Generation
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/api/ai/models` | Available LLM models |
-| `POST` | `/api/ai/generate-post` | Generate social media post |
-| `POST` | `/api/ai/content-plan` | Create content calendar |
+| `GET` | `/api/ai/models` | List available LLM models (11 total) |
+| `POST` | `/api/ai/generate-post` | Generate post (`topic`, `platform`, `tone`, `language`, `model`) |
+| `POST` | `/api/ai/content-plan` | Generate content plan (`days` 1–30) |
 
-### Prompt Management
+### Analytics
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/api/prompts/` | List prompt templates |
-| `POST` | `/api/prompts/` | Create new template |
-| `PATCH` | `/api/prompts/{id}` | Update template |
-| `DELETE` | `/api/prompts/{id}` | Delete template |
+| `GET` | `/api/analytics/` | All analytics rows |
+| `GET` | `/api/analytics/summary` | Totals + per-platform breakdown |
+| `POST` | `/api/analytics/refresh` | Trigger background metrics refresh |
 
-## ✅ Recent Fixes & Next Steps
+### Accounts
 
-### What was fixed (PR: copilot/fix-posts-calendar-issue)
-
-| # | File | Problem | Fix |
-|---|------|---------|-----|
-| 1 | `auto_post.py` | Published posts were **never saved to the database** — invisible in any calendar | Implement `scheduled → success/error` lifecycle: save post as `scheduled` before publishing, PATCH to `success`/`error` after |
-| 2 | `app.py` | `timestamp` stored as `NULL` when caller omitted the field — calendar silently skipped those rows | Auto-fill with `datetime.now(UTC)` when field is absent |
-| 3 | `app.py` | Only `/post` and `/post/history` existed — publisher.vyud.tech needs `/api/posts/` with status/platform filtering and PATCH/DELETE | Added full REST `/api/posts/` endpoints; added PostgreSQL support via `DATABASE_URL` env var |
-| 4 | `streamlit_app.py` | Free-text timestamp input could be blank or malformed | Replaced with `st.date_input` + `st.time_input`; calendar header shows **Всего / Запланировано** counter |
-
-### Deploy to server (v2.1 FastAPI)
-
-> ⚠️ **Важно:** все команды ниже выполняются **на VPS-сервере** (`38.180.243.126`), а не на вашем локальном компьютере.
-> На Mac/Windows нет ни `systemctl`, ни `/root/publisher_app`. Подключайтесь через SSH:
->
-> ```bash
-> # С вашего Mac/Windows — один раз подключиться к серверу:
-> ssh root@38.180.243.126
-> # После этого все команды ниже выполняются уже внутри SSH-сессии
-> ```
->
-> Либо передавайте команды напрямую без интерактивной сессии:
->
-> ```bash
-> # Задеплоить одной строкой прямо с Mac (без входа на сервер):
-> ssh root@38.180.243.126 "cd /root/publisher_app && git pull --no-rebase origin copilot/fix-posts-calendar-issue && systemctl restart publisher-api && sleep 2 && curl -s http://localhost:8000/health"
-> ```
-
-> **Если видишь `bash: scripts/deploy.sh: No such file or directory`** — сервер на ветке `main`, а скрипты
-> живут в PR-ветке. Используй **Путь A** ниже (переключить ветку — 10 секунд).
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/accounts/telegram` | Connect Telegram channel |
+| `POST` | `/api/accounts/linkedin` | Connect LinkedIn profile |
+| `POST` | `/api/accounts/vk` | Connect VK group |
 
 ---
 
-#### 🆘 Если попал в merge conflict (CONFLICT modify/delete: .streamlit/secrets.toml)
+## 🗄️ Database Migrations
 
-Сервер завис с незавершённым мержем. Выполни **по очереди**:
-
-```bash
-cd ~/publisher_app
-
-# 1. Прерываем мерж — возвращаем ветку в чистое состояние
-git merge --abort
-
-# 2. Проверяем что всё чисто
-git status   # должно быть "nothing to commit, working tree clean"
-
-# 3. Теперь деплоим (исправленный скрипт тянет с правильной ветки)
-bash scripts/deploy.sh --setup-venv
-```
-
-> ℹ️ **Почему возник конфликт:** старая версия `deploy.sh` всегда тянула `origin main`, даже когда сервер
-> находится на PR-ветке. Это вызывало modify/delete конфликт в `.streamlit/secrets.toml` (файл удалён
-> в PR-ветке, но существует в истории `main`). Исправлено — новый `deploy.sh` определяет текущую ветку
-> автоматически (`CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)`).
-
----
-
-#### ✅ Путь A — переключить сервер на PR-ветку (скрипты появятся сразу)
-
-**Вариант 1 — одной командой с Mac (не заходя на сервер):**
-```bash
-ssh root@38.180.243.126 "cd /root/publisher_app && git fetch origin && git checkout copilot/fix-posts-calendar-issue && bash scripts/deploy.sh --setup-venv"
-```
-
-**Вариант 2 — зайти на сервер и выполнять вручную:**
-```bash
-# Сначала: ssh root@38.180.243.126
-cd ~/publisher_app
-git fetch origin
-git checkout copilot/fix-posts-calendar-issue   # скрипты появятся немедленно
-bash scripts/deploy.sh --setup-venv             # теперь работает
-```
-
-После мержа PR в `main` переключись обратно:
-```bash
-git checkout main && git pull --no-rebase origin main
-```
-
----
-
-#### ✅ Путь B — без переключения ветки (полностью ручной)
-
-Если нельзя менять ветку, выполни **по очереди** (все команды — на сервере через SSH):
-
-**Вариант 1 — одной командой с Mac:**
-```bash
-ssh root@38.180.243.126 "cd /root/publisher_app && git pull --no-rebase origin copilot/fix-posts-calendar-issue && python3 -m venv backend/venv && backend/venv/bin/pip install -r backend/requirements.txt && systemctl restart publisher-api && sleep 2 && curl -s http://localhost:8000/health"
-```
-
-**Вариант 2 — зайти на сервер и выполнять вручную:**
-```bash
-# Сначала: ssh root@38.180.243.126
-cd ~/publisher_app
-
-# 1. Подтянуть код
-git pull --no-rebase origin copilot/fix-posts-calendar-issue
-
-# 2. Создать venv и поставить зависимости (~2 мин)
-python3 -m venv backend/venv
-backend/venv/bin/pip install --upgrade pip
-backend/venv/bin/pip install -r backend/requirements.txt
-
-# 3. Запустить сервис
-systemctl restart publisher-api
-
-# 4. Проверить — должно вернуть {"status":"ok","version":"2.1.0"}
-curl -s http://localhost:8000/health
-```
-
-> ⚠️ Команды — строго по очереди. `systemctl restart` до создания venv → сервис упадёт с `203/EXEC`.
-
----
-
-#### После мержа PR — стандартный деплой
+Run once in **Supabase SQL Editor**:
 
 ```bash
-cd ~/publisher_app
-bash scripts/deploy.sh                  # бэкенд (обычный деплой)
-bash scripts/deploy.sh --setup-venv     # пересоздать venv
-bash scripts/deploy.sh --with-frontend  # бэкенд + пересборка фронтенда
+# Analytics table + platform_post_id column
+scripts/analytics_migration.sql
 ```
-
-`scripts/deploy.sh` делает автоматически: git pull → проверка venv → pip install → systemctl restart → health check.
-
----
-
-#### 🔍 Диагностика — почему упал publisher-api
-
-```bash
-# 1. Статус сервиса
-systemctl status publisher-api --no-pager -l | head -20
-
-# 2. Последние логи
-journalctl -u publisher-api -n 50 --no-pager
-
-# 3. Health check
-curl -s http://localhost:8000/health
-
-# 4. Проверка диска (переполнение диска молча убивает uvicorn!)
-df -h && du -sh /var/log/journal/
-```
-
-Частые причины падения сервиса:
-| Симптом | Причина | Фикс |
-|---------|---------|------|
-| `203/EXEC` в статусе | venv не существует или uvicorn не установлен | Пересоздать venv (Путь A или B выше) |
-| Сервис active но API не отвечает | uvicorn event loop умер | `systemctl restart publisher-api` |
-| Диск заполнен (df показывает 100%) | journald логи переполнили диск | `journalctl --vacuum-size=50M && systemctl restart publisher-api` |
-| Запросы зависают | nginx timeout < времени AI-генерации | Проверить `proxy_read_timeout 120s` в nginx конфиге |
-
-#### Фронтенд (если нужно пересобрать)
-
-```bash
-cd ~/publisher_app/frontend~
-npm install          # только первый раз или после обновления package.json
-npm run build        # собрать
-systemctl restart publisher-frontend
-```
-
-> **Примечание:** Фронтенд не нужно пересобирать при каждом деплое — он стабилен пока не меняются `.svelte` файлы.
-
-### Fix NULL timestamps in existing posts
-
-```bash
-# Run once after deploying — safe to run multiple times (idempotent)
-python scripts/fix_null_timestamps.py
-
-# Or point at a specific DB path:
-python scripts/fix_null_timestamps.py /var/data/posts.db
-```
-
-Posts that had no timestamp are set to `1970-01-01T00:00:00` so they appear
-in the calendar rather than disappearing silently.  
-Update them to the correct date via the Streamlit UI or:
-
-```bash
-curl -X PATCH http://localhost:5000/api/posts/{id} \
-  -H "Content-Type: application/json" \
-  -d '{"timestamp": "2026-03-01T10:00:00"}'
-```
-
-### Migrate to Supabase (PostgreSQL)
-
-`app.py` now supports PostgreSQL transparently — just set `DATABASE_URL` in `.env`:
-
-```bash
-# .env
-DATABASE_URL=postgresql://postgres:your-password@db.xxxx.supabase.co:5432/postgres
-```
-
-Steps:
-1. Create a Supabase project at [supabase.com](https://supabase.com)
-2. Copy the **Connection string** from Settings → Database → Connection string → URI
-3. Paste it as `DATABASE_URL` in your server `.env`
-4. Restart Flask — `init_db()` will create the `post_history` table automatically
-
-No code changes needed. SQLite remains the default when `DATABASE_URL` is not set.
 
 ---
 
 ## 🛣️ Roadmap
 
-### v2.3 (Q2 2026)
-- [ ] Instagram integration via Graph API
-- [ ] VK.com publishing support
-- [ ] Advanced analytics dashboard
-- [ ] Team collaboration features
+### v2.3 ✅ Released — March 2026
+- [x] Real analytics from Telegram + LinkedIn
+- [x] AI generation → direct publish / schedule / draft
+- [x] Content plan save as scheduled posts
+- [x] EN / RU full UI localization
+- [x] Brand identity (favicon, logo, fonts)
+- [x] Educational tone of voice
+- [x] JWT expiry handling with auto-redirect
 
-### v2.4 (Q3 2026)
+### v2.4 (Q2 2026)
+- [ ] Instagram integration via Graph API
+- [ ] VK publishing support
+- [ ] Advanced analytics charts
+- [ ] Team collaboration (multi-user)
+
+### v2.5 (Q3 2026)
 - [ ] AI image generation (DALL-E, Midjourney)
 - [ ] Content A/B testing
 - [ ] Webhook integrations
 - [ ] Mobile app (React Native)
 
-## 🏢 About VYUD AI
+---
 
-VYUD Publisher is part of the VYUD AI ecosystem, transforming how content creators and businesses leverage artificial intelligence for digital marketing.
+## 🏢 VYUD AI Ecosystem
 
-**Other VYUD Products:**
-- [VYUD AI](https://vyud.online) - Turn documents into interactive courses
-- [VYUD Bot](https://t.me/VyudAiBot) - Telegram AI assistant
-- [VYUD CRM](https://crm.vyud.online) - AI-powered customer management
+| Product | Link |
+|---------|------|
+| VYUD AI | [vyud.online](https://vyud.online) — documents → interactive courses |
+| VYUD Bot | [t.me/VyudAiBot](https://t.me/VyudAiBot) — Telegram AI assistant |
+| VYUD CRM | [crm.vyud.online](https://crm.vyud.online) — AI-powered CRM |
 
-## 📞 Support
-
-- **Issues**: [GitHub Issues](https://github.com/Retyreg/VYUD-AI-Scheduler/issues)
-- **Email**: support@vyud.tech
+**Issues / feedback:** [GitHub Issues](https://github.com/Retyreg/VYUD-AI-Scheduler/issues) · support@vyud.tech
 
 ---
 
-**Built with ❤️ by the VYUD AI Team**
-
-[Website](https://vyud.tech) • [LinkedIn](https://linkedin.com/company/vyud-ai)
+Built with ❤️ by [VYUD AI](https://vyud.tech)

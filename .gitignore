@@ -3,4 +3,14 @@ node_modules
 dist/
 __pycache__/
 *.pyc
-excludes secrets.toml
+.streamlit/secrets.toml
+posts.db
+
+# Backend venv (recreate with scripts/setup_venv.sh)
+backend/venv/
+
+# Frontend build artifacts
+frontend~/.svelte-kit/
+frontend~/build/
+frontend~/node_modules/
+

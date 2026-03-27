@@ -47,7 +47,12 @@
 		<header class="border-b border-gray-800 bg-gray-900 sticky top-0 z-50">
 			<div class="max-w-screen-2xl mx-auto px-4 h-14 flex items-center justify-between">
 				<div class="flex items-center gap-6">
-					<a href="/" class="text-violet-400 font-bold text-lg tracking-tight">VYUD Publisher</a>
+					<a href="/" class="flex items-center gap-2.5 shrink-0">
+						<img src="/logo-mark.svg" alt="VYUD" class="w-8 h-8" />
+						<span class="font-display font-bold text-lg tracking-tight leading-none">
+							<span class="text-white">VYUD</span><span class="text-vyud-blue"> Publisher</span>
+						</span>
+					</a>
 					<nav class="hidden md:flex items-center gap-1">
 						{#each navItems as item}
 							<a

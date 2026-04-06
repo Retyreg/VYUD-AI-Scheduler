@@ -47,10 +47,15 @@ async def fetch_linkedin_post_stats(access_token: str, post_id: str) -> Dict[str
         "X-Restli-Protocol-Version": "2.0.0",
     }
 
+    # Remove the parentheses
     async with httpx.AsyncClient(timeout=15.0) as client:
         resp = await client.get(
-            f"https://api.linkedin.com/v2/socialMetadata/({encoded})",
-            headers=headers,
+            f"https://api.linkedin.com/rest/socialMetadata/{encoded}",
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "LinkedIn-Version": "202401",
+                "X-Restli-Protocol-Version": "2.0.0"
+            },
         )
 
     if resp.status_code == 401:

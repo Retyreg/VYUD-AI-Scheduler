@@ -135,7 +135,7 @@ async def _mark_post_failed(post_id: str, reason: str) -> None:
                 f"{SUPABASE_URL}/rest/v1/posts",
                 headers=_service_headers(),
                 params={"id": f"eq.{post_id}"},
-                json={"status": "failed", "error_message": reason[:500]},
+                json={"status": "failed"}, # Removed error_message since it's not in DB
             )
     except Exception as e:
         logger.error("Failed to mark post %s as failed: %s", post_id, e)

@@ -8,7 +8,7 @@ import httpx
 logger = logging.getLogger(__name__)
 
 _LINKEDIN_REST_API = "https://api.linkedin.com/rest"
-_LINKEDIN_VERSION = "20241201"
+_LINKEDIN_VERSION = "202501"
 
 
 async def post_to_linkedin(
@@ -57,9 +57,6 @@ async def post_to_linkedin(
         "isReshareDisabledByAuthor": False,
     }
 
-    # NOTE: Image posting via new API requires uploading through /rest/images first
-    # (initializeUpload → uploadUrl → finalize), then attaching the image URN.
-    # Direct HTTP URLs are not supported. Image support is tracked as a separate task.
     if image_url:
         logger.warning("Image posting is not yet supported in REST API; posting text only.")
 

@@ -7,7 +7,8 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-_LINKEDIN_API = "https://api.linkedin.com/v2"
+_LINKEDIN_REST_API = "https://api.linkedin.com/rest"
+_LINKEDIN_VERSION = "202401"
 
 
 async def post_to_linkedin(
@@ -16,17 +17,17 @@ async def post_to_linkedin(
     text: str,
     image_url: Optional[str] = None,
 ) -> dict:
-    """Post content to LinkedIn.
+    """Post content to LinkedIn using the new REST Posts API (v202401).
 
     Args:
-        access_token: OAuth 2.0 access token.
+        access_token: OAuth 2.0 access token with w_member_social scope.
         profile_id: LinkedIn member URN (urn:li:person:xxx) or
                     organization URN (urn:li:organization:xxx).
         text: Post text content.
-        image_url: Optional image URL (must be accessible publicly).
+        image_url: Optional image URL (not yet supported by this integration).
 
     Returns:
-        LinkedIn API response dict.
+        Dict with post id and status.
 
     Raises:
         httpx.HTTPStatusError: If LinkedIn API returns an error.
@@ -34,10 +35,10 @@ async def post_to_linkedin(
     headers = {
         "Authorization": f"Bearer {access_token}",
         "Content-Type": "application/json",
+        "LinkedIn-Version": _LINKEDIN_VERSION,
         "X-Restli-Protocol-Version": "2.0.0",
     }
 
-    # Determine author URN type
     if not profile_id.startswith("urn:"):
         author = f"urn:li:person:{profile_id}"
     else:
@@ -45,34 +46,30 @@ async def post_to_linkedin(
 
     payload: dict = {
         "author": author,
-        "lifecycleState": "PUBLISHED",
-        "specificContent": {
-            "com.linkedin.ugc.ShareContent": {
-                "shareCommentary": {"text": text},
-                "shareMediaCategory": "NONE",
-            }
+        "commentary": text,
+        "visibility": "PUBLIC",
+        "distribution": {
+            "feedDistribution": "MAIN_FEED",
+            "targetEntities": [],
+            "thirdPartyDistributionChannels": [],
         },
-        "visibility": {"com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC"},
+        "lifecycleState": "PUBLISHED",
+        "isReshareDisabledByAuthor": False,
     }
 
+    # NOTE: Image posting via new API requires uploading through /rest/images first
+    # (initializeUpload → uploadUrl → finalize), then attaching the image URN.
+    # Direct HTTP URLs are not supported. Image support is tracked as a separate task.
     if image_url:
-        # NOTE: LinkedIn image posting requires a media URN (urn:li:digitalmediaAsset:xxx),
-        # not a direct HTTP URL. To attach an image, you must first upload it via the
-        # LinkedIn Assets API (/v2/assets?action=registerUpload), then use the returned
-        # asset URN here. Direct URLs will cause a validation error from LinkedIn.
-        payload["specificContent"]["com.linkedin.ugc.ShareContent"]["shareMediaCategory"] = "IMAGE"
-        payload["specificContent"]["com.linkedin.ugc.ShareContent"]["media"] = [
-            {
-                "status": "READY",
-                "description": {"text": ""},
-                "media": image_url,
-                "title": {"text": ""},
-            }
-        ]
+        logger.warning("Image posting is not yet supported in REST API v202401; posting text only.")
 
     async with httpx.AsyncClient(timeout=30.0) as client:
-        resp = await client.post(f"{_LINKEDIN_API}/ugcPosts", headers=headers, json=payload)
+        resp = await client.post(f"{_LINKEDIN_REST_API}/posts", headers=headers, json=payload)
 
+    if not resp.is_success:
+        logger.error("LinkedIn API error %s: %s", resp.status_code, resp.text)
     resp.raise_for_status()
-    logger.info("LinkedIn post published for author %s", author)
-    return {"id": resp.headers.get("x-restli-id", ""), "status": "published"}
+
+    post_id = resp.headers.get("x-restli-id", "")
+    logger.info("LinkedIn post published for author %s, post id=%s", author, post_id)
+    return {"id": post_id, "status": "published"}

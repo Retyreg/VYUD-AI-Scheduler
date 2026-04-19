@@ -8,7 +8,7 @@ import httpx
 logger = logging.getLogger(__name__)
 
 _LINKEDIN_REST_API = "https://api.linkedin.com/rest"
-_LINKEDIN_VERSION = "202401"
+_LINKEDIN_VERSION = "20241201"
 
 
 async def post_to_linkedin(
@@ -17,7 +17,7 @@ async def post_to_linkedin(
     text: str,
     image_url: Optional[str] = None,
 ) -> dict:
-    """Post content to LinkedIn using the new REST Posts API (v202401).
+    """Post content to LinkedIn using the new REST Posts API.
 
     Args:
         access_token: OAuth 2.0 access token with w_member_social scope.
@@ -61,7 +61,7 @@ async def post_to_linkedin(
     # (initializeUpload → uploadUrl → finalize), then attaching the image URN.
     # Direct HTTP URLs are not supported. Image support is tracked as a separate task.
     if image_url:
-        logger.warning("Image posting is not yet supported in REST API v202401; posting text only.")
+        logger.warning("Image posting is not yet supported in REST API; posting text only.")
 
     async with httpx.AsyncClient(timeout=30.0) as client:
         resp = await client.post(f"{_LINKEDIN_REST_API}/posts", headers=headers, json=payload)

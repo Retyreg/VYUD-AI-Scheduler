@@ -8,7 +8,7 @@ import httpx
 logger = logging.getLogger(__name__)
 
 _LINKEDIN_REST_API = "https://api.linkedin.com/rest"
-_LINKEDIN_VERSION = "202501"
+_LINKEDIN_VERSION = "202604"
 
 
 async def post_to_linkedin(
@@ -17,7 +17,7 @@ async def post_to_linkedin(
     text: str,
     image_url: Optional[str] = None,
 ) -> dict:
-    """Post content to LinkedIn using the new REST Posts API.
+    """Post content to LinkedIn using the REST Posts API.
 
     Args:
         access_token: OAuth 2.0 access token with w_member_social scope.
